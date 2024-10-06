@@ -9,7 +9,6 @@ from typing import Any, Dict, Callable
 
 pytestmark = pytest.mark.api
 
-# STACK_NAME = "yolo-sam-dev"
 STACK_NAME = os.environ.get("DEV_STACK_NAME")
 
 
