@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+
+set -e
+set -o nounset
+set -o pipefail
+set -a
+. .env
+set +a
+
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
+
+# Function to display help
+help_function() {
+    cat <<EOF
+
+Usage: $(basename "$0") [-h] [-d]
+
+Description:
+  This script manages the development, testing, and deployment of AWS SAM-based Lambda functions.
+  It includes functionality for local testing, integration testing, and continuous deployment.
+
+Options:
+  -h, --help             Display this help message and exit
+  -s, --stage            Stage the application development environment
+  -d, --deploy           Deploy the application and watch for changes
+
+Examples:
+  $(basename "$0") -d                    # Deploy and watch for changes
+
+Note:
+  - Ensure you have Docker, AWS SAM CLI, and Python installed.
+  - The script will check for these dependencies before running.
+  - For deployment, make sure you have configured your AWS credentials.
+
+EOF
+}
+
+# Function to check if a command exists
+command_exists() {
+    type "$1" &> /dev/null
+}
+
+# Check required dependencies
+check_dependencies() {
+    if ! command_exists docker; then
+        cat <<EOF
+
+Docker is not installed. Install it using:
+
+curl -fsSL https://get.docker.com -o get-docker.sh && \\
+    sudo sh get-docker.sh
+
+EOF
+        exit 1
+    fi
+
+    if ! command_exists sam; then
+        cat <<EOF
+
+AWS SAM CLI is not installed. Install it with:
+
+wget https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip && \\
+    unzip aws-sam-cli-linux-x86_64.zip -d sam-installation && \\
+    sudo ./sam-installation/install && \\
+    rm -rf aws-sam-cli-linux-x86_64.zip sam-installation
+
+EOF
+        exit 1
+    fi
+
+    if ! command_exists pip; then
+        cat <<EOF
+
+Pip is not installed. Install it with:
+
+Linux:
+
+sudo apt install python3-pip
+
+MacOS:
+
+brew install python3-pip
+
+EOF
+        exit 1
+    fi
+}
+
+validate_app() {
+    # Formats code, runs, unit tests, and validates SAM template
+    echo "Validating application..."
+    python -m black -q detection/ && \
+        pytest -q -m unit && \
+        # pytest -q -m unit 2>&1 >/dev/null && \
+        sam validate
+}
+
+stage() {
+    # Cleans build directory, builds in a consistent environment, and runs a test event
+    # TODO replace local invoke with integration test
+    echo "Staging endpoint..."
+    rm -rf .aws-sam/ && \
+        # https://stackoverflow.com/questions/68438620/unable-to-build-a-python-app-with-aws-sam
+        sam build --use-container && \
+        sam deploy --config-env dev --no-fail-on-empty-changeset && \
+        # pytest -m api 2>&1 >/dev/null
+        pytest -q -m api
+}
+
+deploy() {
+    echo "Not implemented"
+}
+
+main() {
+    # Initialize flags
+    RUN_STAGE=false
+    RUN_DEPLOY=false
+
+    # Parse arguments
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                help_function
+                exit 0
+                ;;
+            -s|--stage)
+                RUN_STAGE=true
+                shift 1
+                ;;
+            -d|--deploy)
+                RUN_DEPLOY=true
+                shift 1
+                ;;
+            *)
+                echo "Unknown parameter passed: $1"
+                help_function
+                exit 1
+                ;;
+        esac
+    done
+
+    # Check for required dependencies
+    check_dependencies
+
+    # Validate application functionality
+    validate_app
+
+    if [ "$RUN_STAGE" = true ]; then
+        # AI-generated comment: Deploy and watch for changes after successful tests
+        stage
+    fi
+
+    if [ "$RUN_DEPLOY" = true ]; then
+        # AI-generated comment: Deploy and watch for changes after successful tests
+        deploy
+    fi
+}
+
+main "$@"
