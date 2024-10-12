@@ -10,20 +10,18 @@ STATUS_CODE_OK = 200
 STATUS_CODE_BAD_REQUEST = 400
 
 
-@pytest.fixture(scope="session")
-def test_body() -> str:
-    return json.dumps(
-        {
-            "image": encode_image_to_base64("images/zidane.jpg"),
-            "size": 640,
-            "conf_thres": 0.7,
-            "iou_thres": 0.5,
-            "save_image": True,
-        }
-    )
+@pytest.fixture(scope="function")
+def test_body() -> dict:
+    return {
+        "image": encode_image_to_base64("images/zidane.jpg"),
+        "size": 640,
+        "conf_thres": 0.7,
+        "iou_thres": 0.5,
+        "save_image": True,
+    }
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def apigw_event_factory() -> dict:
     """Factory fixture to generate customizable API Gateway events"""
 

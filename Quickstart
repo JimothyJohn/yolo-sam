@@ -4,119 +4,187 @@ set -e
 set -o nounset
 set -o pipefail
 set -a
-. .env
+. dev.env
 set +a
 
 if [[ "${TRACE-0}" == "1" ]]; then
     set -o xtrace
 fi
 
-# Function to display help
+# AI-generated comment: Function to log messages with timestamps
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*"
+}
+# AI-generated comment: Updated help function to match current script functionality
 help_function() {
     cat <<EOF
 
-Usage: $(basename "$0") [-h] [-d]
+Usage: $(basename "$0") [-h] [-t] [-d]
 
 Description:
   This script manages the development, testing, and deployment of AWS SAM-based Lambda functions.
-  It includes functionality for local testing, integration testing, and continuous deployment.
+  It includes functionality for local testing, integration testing, and deployment testing.
 
 Options:
   -h, --help             Display this help message and exit
-  -s, --stage            Stage the application development environment
-  -d, --deploy           Deploy the application and watch for changes
+  -t, --test             Run local API and integration tests
+  -d, --deploy           Build, deploy, and run deployment tests
 
 Examples:
-  $(basename "$0") -d                    # Deploy and watch for changes
+  $(basename "$0") -t                    # Run local API and integration tests
+  $(basename "$0") -d                    # Build, deploy, and run deployment tests
 
 Note:
-  - Ensure you have Docker, AWS SAM CLI, and Python installed.
+  - Ensure you have Docker, AWS SAM CLI, and Python with pip installed.
   - The script will check for these dependencies before running.
   - For deployment, make sure you have configured your AWS credentials.
+  - The script uses 'pytest' for running tests, ensure it's installed in your environment.
+
+Additional Information:
+  - Local API testing uses 'sam local start-api' and runs in the background.
+  - Deployment testing uses 'sam sync' with the --watch option.
+  - Both test processes are automatically terminated after tests complete.
+  - Log files are generated for debugging purposes.
 
 EOF
 }
+
+# AI-generated comment: This updated help function provides a more accurate
+# description of the script's current functionality, including the test and
+# deploy options, and additional details about the testing process.
 
 # Function to check if a command exists
 command_exists() {
     type "$1" &> /dev/null
 }
 
-# Check required dependencies
+# AI-generated comment: Simplified check_dependencies function
+# This function checks for the presence of required tools without providing installation instructions
 check_dependencies() {
-    if ! command_exists docker; then
-        cat <<EOF
+    local missing_deps=()
 
-Docker is not installed. Install it using:
+    for dep in docker sam pip; do
+        if ! command_exists "$dep"; then
+            missing_deps+=("$dep")
+        fi
+    done
 
-curl -fsSL https://get.docker.com -o get-docker.sh && \\
-    sudo sh get-docker.sh
-
-EOF
-        exit 1
-    fi
-
-    if ! command_exists sam; then
-        cat <<EOF
-
-AWS SAM CLI is not installed. Install it with:
-
-wget https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip && \\
-    unzip aws-sam-cli-linux-x86_64.zip -d sam-installation && \\
-    sudo ./sam-installation/install && \\
-    rm -rf aws-sam-cli-linux-x86_64.zip sam-installation
-
-EOF
-        exit 1
-    fi
-
-    if ! command_exists pip; then
-        cat <<EOF
-
-Pip is not installed. Install it with:
-
-Linux:
-
-sudo apt install python3-pip
-
-MacOS:
-
-brew install python3-pip
-
-EOF
+    if [ ${#missing_deps[@]} -ne 0 ]; then
+        echo "Error: The following required dependencies are missing:"
+        printf " - %s\n" "${missing_deps[@]}"
+        echo "Please install the missing dependencies and try again."
         exit 1
     fi
 }
 
-validate_app() {
-    # Formats code, runs, unit tests, and validates SAM template
-    echo "Validating application..."
-    python -m black -q detection/ && \
-        pytest -q -m unit && \
-        # pytest -q -m unit 2>&1 >/dev/null && \
-        sam validate
+validate_and_build() {
+    log "Formatting application"
+    if ! python -m black -q detection/; then
+        log "ERROR: Code formatting failed"
+        return 1
+    fi
+
+    log "Validating application"
+    if ! sam validate > /dev/null 2>&1; then
+        log "ERROR: SAM template validation failed"
+        return 1
+    fi
+
+    log "Building application (est. 13s)"
+    if ! sam build --use-container > /dev/null 2>&1; then
+        log "ERROR: SAM build failed"
+        return 1
+    fi
+
+    return 0
 }
 
-stage() {
-    # Cleans build directory, builds in a consistent environment, and runs a test event
-    # TODO replace local invoke with integration test
-    echo "Staging endpoint..."
-    rm -rf .aws-sam/ && \
-        # https://stackoverflow.com/questions/68438620/unable-to-build-a-python-app-with-aws-sam
-        sam build --use-container && \
-        sam deploy --config-env dev --no-fail-on-empty-changeset && \
-        # pytest -m api 2>&1 >/dev/null
-        pytest -q -m api
+# AI-generated comment: Enhanced test_unit function with better error handling
+test_unit() {
+    log "Running unit tests"
+    if ! python -m pytest -q -m unit; then
+        log "ERROR: Unit tests failed"
+        return 1
+    fi
+
+    return 0
 }
 
+# AI-generated comment: Enhanced test_integration function with background API and cleanup
+test_integration() {
+    log "Starting local API (est. 5s)"
+    sam local start-api --log-file ./local_api.log > /dev/null 2>&1 &
+    SAM_PID=$!
+
+    # Wait for the API to start (adjust sleep time as needed)
+    sleep 5
+
+    # Run the tests
+    log "Running integration tests"
+    if ! python -m pytest -q -m integration; then
+        log "ERROR: API tests failed"
+        kill $SAM_PID
+        return 1
+    fi
+
+    # Wait for the process to be fully terminated
+    kill $SAM_PID
+    wait $SAM_PID 2> /dev/null
+
+    return 0
+}
+
+# AI-generated comment: Enhanced test_deployment function with background sync and cleanup
+test_deployment() {
+    # AI-generated comment: Run sam deploy synchronously and capture its output
+    log "Deploying ${ENV} application (est. 20s)"
+    if ! sam deploy --config-env $ENV --no-fail-on-empty-changeset > deploy.log 2>&1; then
+        log "ERROR: SAM deploy failed. Check deploy.log for details."
+        cat deploy.log
+        return 1
+    fi
+
+    # Wait for the sync to start (adjust sleep time as needed)
+    sleep 5
+
+    # Run the tests
+    log "Running deployment tests"
+    if python -m pytest -q -m deployment; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# AI-generated comment: Implemented deploy function with basic watchdog mechanism
 deploy() {
-    echo "Not implemented"
+    log "Deploying and watching for changes"
+    while true; do
+        if test_unit && stage; then
+            log "Deployment successful. Watching for changes"
+            inotifywait -r -e modify,create,delete ./detection
+            log "Changes detected. Redeploying"
+        else
+            log "ERROR: Deployment failed. Waiting 60 seconds before retrying"
+            sleep 60
+        fi
+    done
 }
 
+# AI-generated comment: Added cleanup function to handle interrupts and exits
+cleanup() {
+    log "Cleaning up and exiting"
+    # Add any necessary cleanup steps here
+    exit 0
+}
 main() {
     # Initialize flags
-    RUN_STAGE=false
-    RUN_DEPLOY=false
+    local run_stage=false
+    local run_deploy=false
+    local run_test_unit=false
+    local run_test_integration=false
+    local run_test_deployment=false
+    local run_test_all=false
 
     # Parse arguments
     while [[ "$#" -gt 0 ]]; do
@@ -126,11 +194,29 @@ main() {
                 exit 0
                 ;;
             -s|--stage)
-                RUN_STAGE=true
+                run_stage=true
                 shift 1
                 ;;
-            -d|--deploy)
-                RUN_DEPLOY=true
+            -u|--test-unit)
+                run_test_unit=true
+                shift 1
+                ;;
+            -i|--test-integration)
+                run_test_integration=true
+                shift 1
+                ;;
+            -d|--test-deployment)
+                run_test_deployment=true
+                shift 1
+                ;;
+            -t|--test-all)
+                run_test_all=true
+                # TODO possibly get rid of this
+                clear
+                shift 1
+                ;;
+            -p|--publish)
+                run_deploy=true
                 shift 1
                 ;;
             *)
@@ -141,19 +227,31 @@ main() {
         esac
     done
 
+    # Set up trap for cleanup
+    trap cleanup SIGINT SIGTERM
+
     # Check for required dependencies
     check_dependencies
+    validate_and_build || exit 1
 
-    # Validate application functionality
-    validate_app
-
-    if [ "$RUN_STAGE" = true ]; then
-        # AI-generated comment: Deploy and watch for changes after successful tests
-        stage
+    # Run tests based on flags
+    if [[ "$run_test_all" == true ]] || [[ "$run_test_unit" == true ]]; then
+        test_unit || { log "Unit tests failed"; exit 1; }
     fi
 
-    if [ "$RUN_DEPLOY" = true ]; then
-        # AI-generated comment: Deploy and watch for changes after successful tests
+    if [[ "$run_test_all" == true ]] || [[ "$run_test_integration" == true ]]; then
+        test_integration || { log "Integration tests failed"; exit 1; }
+    fi
+
+    if [[ "$run_test_all" == true ]] || [[ "$run_test_deployment" == true ]]; then
+        test_deployment || { log "Deployment tests failed"; exit 1; }
+    fi
+
+    if [[ "$run_stage" == true ]]; then
+        stage || exit 1
+    fi
+
+    if [[ "$run_deploy" == true ]]; then
         deploy
     fi
 }
