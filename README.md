@@ -17,8 +17,8 @@ A cost-effective way to detect objects in your environment! Each query completes
 Convenience script
 
 ```bash
-# Format, Validate, Build, Test, Run
-bash ./Quickstart -s
+# Format, Validate, Build, Test
+bash ./Quickstart -t
 ```
 
 <details>
@@ -39,4 +39,5 @@ bash ./utils/ExportONNX.sh
 ### To-do
 
 [ ] Fine-tuning tutorial
+
 [ ] Ojito integration

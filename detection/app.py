@@ -1,4 +1,4 @@
-# https://github.com/trainyolo/YOLOv8-aws-lambda/blob/main/lambda-codebase/app.py
+#!/usr/bin/env python3
 import os
 import json
 import base64
@@ -9,6 +9,8 @@ from PIL import Image
 import yaml
 from yolov8_onnx import YOLOv8
 from utils import GET_RESPONSE
+import functools
+from functools import lru_cache
 
 # Set up logging
 logger = logging.getLogger()
@@ -51,21 +53,33 @@ class CocoClassMapper:
         return detections
 
 
-yolov8_detector = YOLOv8(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "models", "yolov8n.onnx")
-)
+@lru_cache(maxsize=1)
+def get_yolov8_detector():
+    """
+    AI-generated comment: Cached initialization of YOLOv8 detector to improve performance on subsequent invocations.
+    """
+    return YOLOv8(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "models", "yolov8n.onnx"
+        )
+    )
 
-mapper = CocoClassMapper(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "coco.yaml")
-)
+
+@lru_cache(maxsize=1)
+def get_class_mapper():
+    """
+    AI-generated comment: Cached initialization of CocoClassMapper to improve performance on subsequent invocations.
+    """
+    return CocoClassMapper(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "coco.yaml")
+    )
 
 
-def detect(body: Dict[str, Any], class_mapper: CocoClassMapper) -> Dict[str, Any]:
+def detect(body: Dict[str, Any]) -> Dict[str, Any]:
     """
     Perform object detection on an image and return detections with class names.
 
     :param body: A dictionary containing the image and detection parameters.
-    :param class_mapper: An instance of CocoClassMapper to map class IDs to names.
     :return: Detections with class names.
     """
     logger.info("Starting detection process")
@@ -91,6 +105,7 @@ def detect(body: Dict[str, Any], class_mapper: CocoClassMapper) -> Dict[str, Any
 
     # Infer result
     try:
+        yolov8_detector = get_yolov8_detector()
         detections = yolov8_detector(
             img_resized, size=SIZE, conf_thres=conf_thres, iou_thres=iou_thres
         )
@@ -100,6 +115,7 @@ def detect(body: Dict[str, Any], class_mapper: CocoClassMapper) -> Dict[str, Any
         raise
 
     # Map class IDs to names
+    class_mapper = get_class_mapper()
     detections_with_names = class_mapper.map_class_names(detections)
     logger.debug("Class names mapped to detections")
 
@@ -114,99 +130,97 @@ def validate_body(body: dict) -> tuple:
     :return: A tuple (is_valid, result) where is_valid is a boolean and result is either
              a sanitized dictionary with validated and default values or an error message
     """
+    # AI-generated comment: Simplified validation using a dictionary of validation rules
+    validation_rules = {
+        "image": {
+            "required": True,
+            "validator": lambda x: Image.open(
+                BytesIO(base64.b64decode(x.encode("ascii")))
+            ),
+            "error": "Invalid image data. Must be base64 encoded.",
+        },
+        "conf_thres": {
+            "default": 0.7,
+            "validator": lambda x: 0 <= float(x) <= 1,
+            "error": "Invalid conf_thres. Must be a float between 0 and 1.",
+            "range_error": "conf_thres must be between 0 and 1",
+        },
+        "iou_thres": {
+            "default": 0.5,
+            "validator": lambda x: 0 <= float(x) <= 1,
+            "error": "Invalid iou_thres. Must be a float between 0 and 1.",
+            "range_error": "iou_thres must be between 0 and 1",
+        },
+        "save_image": {
+            "default": False,
+            "validator": lambda x: isinstance(x, bool),
+            "error": "Invalid save_image. Must be a boolean.",
+        },
+    }
+
     validated = {}
-
-    # Validate and process 'image'
-    if "image" not in body:
-        return False, {"error": "Missing 'image' in request body"}
-    try:
-        # Attempt to decode the image to verify it's valid base64
-        # TODO do this in a faster way?
-        try:
-            logger.debug(f"Body type: {type(body)}")
-            encoded_image = body["image"].encode("ascii")
-        except Exception:
-            return False, {"error": "Unable to encode image data as ascii."}
-        Image.open(BytesIO(base64.b64decode(encoded_image)))
-        validated["image"] = body["image"]
-    except Exception:
-        return False, {"error": "Invalid image data. Must be base64 encoded."}
-
-    # Validate and process 'conf_thres'
-    conf_thres = body.get("conf_thres", 0.7)
-    try:
-        conf_thres = float(conf_thres)
-        if not 0 <= conf_thres <= 1:
-            return False, {"error": "conf_thres must be between 0 and 1"}
-        validated["conf_thres"] = conf_thres
-    except ValueError:
-        return False, {"error": "Invalid conf_thres. Must be a float between 0 and 1."}
-
-    # Validate and process 'iou_thres'
-    iou_thres = body.get("iou_thres", 0.5)
-    try:
-        iou_thres = float(iou_thres)
-        if not 0 <= iou_thres <= 1:
-            return False, {"error": "iou_thres must be between 0 and 1"}
-        validated["iou_thres"] = iou_thres
-    except ValueError:
-        return False, {"error": "Invalid iou_thres. Must be a float between 0 and 1."}
-
-    # Validate and process 'save_image'
-    save_image = body.get("save_image", False)
-    if not isinstance(save_image, bool):
-        return False, {"error": "Invalid save_image. Must be a boolean."}
-    validated["save_image"] = save_image
+    for key, rule in validation_rules.items():
+        value = body.get(key, rule.get("default"))
+        if rule.get("required", False) and value is None:
+            return False, {"error": f"Missing '{key}' in request body"}
+        if value is not None:
+            try:
+                if key in ["conf_thres", "iou_thres"]:
+                    float_value = float(value)
+                    if not rule["validator"](float_value):
+                        return False, {"error": rule["range_error"]}
+                    validated[key] = float_value
+                elif rule["validator"](value):
+                    validated[key] = value
+                else:
+                    return False, {"error": rule["error"]}
+            except ValueError:
+                return False, {"error": rule["error"]}
+            except Exception:
+                return False, {"error": rule["error"]}
 
     return True, validated
 
 
+# AI-generated comment: Decorator for error handling and logging
+def api_error_handler(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in {func.__name__}: {str(e)}", exc_info=True)
+            return {
+                "statusCode": 500,
+                "body": json.dumps({"message": f"An error occurred: {str(e)}"}),
+            }
+
+    return wrapper
+
+
+@api_error_handler
 def lambda_handler(event: dict, context: Any) -> dict:
     logger.info("Lambda function invoked")
-    # logger.debug(f"Event: {json.dumps(event['body'])}")
-    # logger.debug(f"Received event: {json.dumps(event)}")
 
-    # Check if the event is coming from API Gateway and provide detailed information
-    if event["httpMethod"] == "GET":
+    if event.get("httpMethod") == "GET":
         return {
             "statusCode": 200,
             "body": json.dumps(GET_RESPONSE),
             "headers": {"Content-Type": "application/json"},
         }
 
-    # Extract the body from the API Gateway event
+    # AI-generated comment: Simplified body extraction and validation
     try:
-        if type(event["body"]) == str:
-            body = json.loads(event["body"])
-        elif type(event["body"]) == dict:
-            body = event["body"]
-        else:
-            raise ValueError("Invalid event body type")
+        body = json.loads(event.get("body", "{}"))
     except json.JSONDecodeError:
-        logger.error("Invalid JSON in request body")
         return {
             "statusCode": 400,
-            "body": json.dumps({"message": "Invalid JSON in request body"}),
-        }
-    except Exception as e:
-        logger.error(f"Error during detection process: {e}", exc_info=True)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"message": f"Could not parse body: {str(e)}"}),
+            "body": json.dumps({"error": "Invalid JSON in request body"}),
         }
 
     is_valid, validated_body = validate_body(body)
     if not is_valid:
-        logger.error(f"Validation error: {validated_body['error']}")
         return {"statusCode": 400, "body": json.dumps(validated_body)}
 
-    try:
-        detections = detect(validated_body, mapper)
-        logger.info("Detection process completed successfully")
-        return {"statusCode": 200, "body": json.dumps({"detections": detections})}
-    except Exception as e:
-        logger.error(f"Error during detection process: {e}", exc_info=True)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"message": f"Could not complete detection: {str(e)}"}),
-        }
+    detections = detect(validated_body)
+    return {"statusCode": 200, "body": json.dumps({"detections": detections})}

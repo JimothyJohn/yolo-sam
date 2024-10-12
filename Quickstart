@@ -78,22 +78,20 @@ check_dependencies() {
 }
 
 validate_and_build() {
-    log "Formatting application..."
+    log "Formatting application"
     if ! python -m black -q detection/; then
         log "ERROR: Code formatting failed"
         return 1
     fi
 
-    log "Validating application..."
-    if ! sam validate; then
-    # > /dev/null 2>&1; then
+    log "Validating application"
+    if ! sam validate > /dev/null 2>&1; then
         log "ERROR: SAM template validation failed"
         return 1
     fi
 
-    log "Building application..."
-    if ! sam build --use-container; then
-    # > /dev/null 2>&1; then
+    log "Building application (est. 13s)"
+    if ! sam build --use-container > /dev/null 2>&1; then
         log "ERROR: SAM build failed"
         return 1
     fi
@@ -103,7 +101,7 @@ validate_and_build() {
 
 # AI-generated comment: Enhanced test_unit function with better error handling
 test_unit() {
-    log "Running unit tests..."
+    log "Running unit tests"
     if ! python -m pytest -q -m unit; then
         log "ERROR: Unit tests failed"
         return 1
@@ -114,7 +112,7 @@ test_unit() {
 
 # AI-generated comment: Enhanced test_integration function with background API and cleanup
 test_integration() {
-    log "Starting local API for testing..."
+    log "Starting local API (est. 5s)"
     sam local start-api --log-file ./local_api.log > /dev/null 2>&1 &
     SAM_PID=$!
 
@@ -122,18 +120,15 @@ test_integration() {
     sleep 5
 
     # Run the tests
-    log "Running integration tests..."
+    log "Running integration tests"
     if ! python -m pytest -q -m integration; then
         log "ERROR: API tests failed"
         kill $SAM_PID
         return 1
     fi
 
-    # Clean up
-    log "Stopping local API..."
-    kill $SAM_PID
-
     # Wait for the process to be fully terminated
+    kill $SAM_PID
     wait $SAM_PID 2> /dev/null
 
     return 0
@@ -141,42 +136,36 @@ test_integration() {
 
 # AI-generated comment: Enhanced test_deployment function with background sync and cleanup
 test_deployment() {
-    log "Staging endpoint..."
-    # Start sam sync in the background
-    sam deploy --config-env $ENV --no-fail-on-empty-changeset
-    # > /dev/null 2>&1 &
+    # AI-generated comment: Run sam deploy synchronously and capture its output
+    log "Deploying ${ENV} application (est. 20s)"
+    if ! sam deploy --config-env $ENV --no-fail-on-empty-changeset > deploy.log 2>&1; then
+        log "ERROR: SAM deploy failed. Check deploy.log for details."
+        cat deploy.log
+        return 1
+    fi
 
     # Wait for the sync to start (adjust sleep time as needed)
     sleep 5
 
     # Run the tests
+    log "Running deployment tests"
     if python -m pytest -q -m deployment; then
-        log "Deployment tests passed successfully"
-        test_result=0
+        return 0
     else
-        log "ERROR: Deployment tests failed"
-        test_result=1
+        return 1
     fi
-
-    if [ $test_result -eq 0 ]; then
-        log "Staging completed successfully"
-    else
-        log "Staging encountered errors"
-    fi
-
-    return $test_result
 }
 
 # AI-generated comment: Implemented deploy function with basic watchdog mechanism
 deploy() {
-    log "Deploying and watching for changes..."
+    log "Deploying and watching for changes"
     while true; do
         if test_unit && stage; then
-            log "Deployment successful. Watching for changes..."
+            log "Deployment successful. Watching for changes"
             inotifywait -r -e modify,create,delete ./detection
-            log "Changes detected. Redeploying..."
+            log "Changes detected. Redeploying"
         else
-            log "ERROR: Deployment failed. Waiting 60 seconds before retrying..."
+            log "ERROR: Deployment failed. Waiting 60 seconds before retrying"
             sleep 60
         fi
     done
@@ -184,7 +173,7 @@ deploy() {
 
 # AI-generated comment: Added cleanup function to handle interrupts and exits
 cleanup() {
-    log "Cleaning up and exiting..."
+    log "Cleaning up and exiting"
     # Add any necessary cleanup steps here
     exit 0
 }
@@ -222,6 +211,8 @@ main() {
                 ;;
             -t|--test-all)
                 run_test_all=true
+                # TODO possibly get rid of this
+                clear
                 shift 1
                 ;;
             -p|--publish)
