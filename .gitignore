@@ -501,3 +501,4 @@ $RECYCLE.BIN/
 images/
 *.code-workspace
 events/
+*.env

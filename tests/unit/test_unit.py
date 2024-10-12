@@ -11,12 +11,12 @@ pytestmark = pytest.mark.unit
 
 def test_detect_successful_post(
     apigw_event_factory: Callable[..., Dict[str, Any]],
-    test_body: str,
+    test_body: dict,
     assert_post_response: Callable[[Dict[str, Any]], None],
 ) -> None:
     event = apigw_event_factory(
         http_method="POST",
-        body=test_body,
+        body=json.dumps(test_body),
         headers={"Content-Type": "application/json"},
     )
 
@@ -54,8 +54,8 @@ def test_detect_post_missing_image(
     assert body["error"] == "Missing 'image' in request body"
 
 
-def test_detect_post_valid_save_image(apigw_event_factory, test_body: str) -> None:
-    body = json.loads(test_body)
+def test_detect_post_valid_save_image(apigw_event_factory, test_body: dict) -> None:
+    body = test_body.copy()
     body["save_image"] = True
     event = apigw_event_factory(
         http_method="POST",
@@ -90,12 +90,12 @@ def test_detect_post_valid_save_image(apigw_event_factory, test_body: str) -> No
 )
 def test_detect_post_invalid_fields(
     apigw_event_factory: Callable[..., Dict[str, Any]],
-    test_body: str,
+    test_body: dict,
     field: str,
     value: Any,
     expected_error: str,
 ) -> None:
-    body = json.loads(test_body)
+    body = test_body
     body[field] = value
     event = apigw_event_factory(
         http_method="POST",

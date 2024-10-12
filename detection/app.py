@@ -10,9 +10,12 @@ import yaml
 from yolov8_onnx import YOLOv8
 from utils import GET_RESPONSE
 
-# AI-generated comment: Set up logging
+# Set up logging
 logger = logging.getLogger()
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.DEBUG)  # Set to DEBUG to capture all levels of logs
+
+# Create a formatter
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 class CocoClassMapper:
@@ -119,7 +122,12 @@ def validate_body(body: dict) -> tuple:
     try:
         # Attempt to decode the image to verify it's valid base64
         # TODO do this in a faster way?
-        Image.open(BytesIO(base64.b64decode(body["image"].encode("ascii"))))
+        try:
+            logger.debug(f"Body type: {type(body)}")
+            encoded_image = body["image"].encode("ascii")
+        except Exception:
+            return False, {"error": "Unable to encode image data as ascii."}
+        Image.open(BytesIO(base64.b64decode(encoded_image)))
         validated["image"] = body["image"]
     except Exception:
         return False, {"error": "Invalid image data. Must be base64 encoded."}
@@ -153,9 +161,10 @@ def validate_body(body: dict) -> tuple:
     return True, validated
 
 
-def lambda_handler(event, context):
+def lambda_handler(event: dict, context: Any) -> dict:
     logger.info("Lambda function invoked")
-    logger.debug(f"Received event: {json.dumps(event)}")
+    # logger.debug(f"Event: {json.dumps(event['body'])}")
+    # logger.debug(f"Received event: {json.dumps(event)}")
 
     # Check if the event is coming from API Gateway and provide detailed information
     if event["httpMethod"] == "GET":
@@ -167,7 +176,12 @@ def lambda_handler(event, context):
 
     # Extract the body from the API Gateway event
     try:
-        body = json.loads(event["body"])
+        if type(event["body"]) == str:
+            body = json.loads(event["body"])
+        elif type(event["body"]) == dict:
+            body = event["body"]
+        else:
+            raise ValueError("Invalid event body type")
     except json.JSONDecodeError:
         logger.error("Invalid JSON in request body")
         return {
@@ -176,7 +190,10 @@ def lambda_handler(event, context):
         }
     except Exception as e:
         logger.error(f"Error during detection process: {e}", exc_info=True)
-        return {"statusCode": 500, "body": json.dumps({"message": str(e)})}
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"message": f"Could not parse body: {str(e)}"}),
+        }
 
     is_valid, validated_body = validate_body(body)
     if not is_valid:
@@ -189,4 +206,7 @@ def lambda_handler(event, context):
         return {"statusCode": 200, "body": json.dumps({"detections": detections})}
     except Exception as e:
         logger.error(f"Error during detection process: {e}", exc_info=True)
-        return {"statusCode": 500, "body": json.dumps({"message": str(e)})}
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"message": f"Could not complete detection: {str(e)}"}),
+        }

@@ -7,10 +7,10 @@ from tests.fixtures import *
 from time import time
 from typing import Any, Dict, Callable
 
-pytestmark = pytest.mark.api
+pytestmark = pytest.mark.deployment
 
-# STACK_NAME = "yolo-sam-dev"
-STACK_NAME = os.environ.get("DEV_STACK_NAME")
+STACK_NAME = os.environ.get("STACK_NAME")
+STACK_NAME = "yolo-sam-dev"
 
 
 @pytest.fixture(scope="session")
@@ -51,7 +51,7 @@ def test_detect_successful_post(
 ):
     start_time = time()
     response = requests.post(
-        api_gateway_url, data=test_body, headers={"Content-Type": CONTENT_TYPE_JSON}
+        api_gateway_url, json=test_body, headers={"Content-Type": CONTENT_TYPE_JSON}
     )
     response_time = time() - start_time
     assert_post_response(response.json(), response.status_code)
@@ -106,12 +106,12 @@ def test_detect_post_missing_image(
 )
 def test_detect_post_invalid_fields(
     api_gateway_url: str,
-    test_body: str,
+    test_body: dict,
     field: str,
     value: Any,
     expected_error: str,
 ) -> None:
-    body = json.loads(test_body)
+    body = test_body.copy()
     body[field] = value
     ret = requests.post(
         api_gateway_url, json=body, headers={"Content-Type": "application/json"}
