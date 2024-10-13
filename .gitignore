@@ -502,3 +502,4 @@ images/
 *.code-workspace
 events/
 *.env
+outputs/
