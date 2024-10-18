@@ -3,6 +3,14 @@
 set -e
 set -o nounset
 set -o pipefail
+
+# AI-generated comment: Check for the existence of the dev.env file and provide a helpful error message if missing
+if [[ ! -f "dev.env" ]]; then
+    echo "Error: 'dev.env' file not found. Please ensure the file exists in the current directory."
+    echo "The 'dev.env' file is required to set environment variables for the script."
+    exit 1
+fi
+
 set -a
 . dev.env
 set +a
@@ -79,7 +87,7 @@ check_dependencies() {
 
 validate_and_build() {
     log "Formatting application"
-    if ! python -m black -q detection/; then
+    if ! python -m black -q detection; then
         log "ERROR: Code formatting failed"
         return 1
     fi
@@ -113,7 +121,7 @@ test_unit() {
 # AI-generated comment: Enhanced test_integration function with background API and cleanup
 test_integration() {
     log "Starting local API (est. 5s)"
-    sam local start-api --log-file ./local_api.log > /dev/null 2>&1 &
+    sam local start-api --skip-pull-image --log-file ./local_api.log > /dev/null 2>&1 &
     SAM_PID=$!
 
     # Wait for the API to start (adjust sleep time as needed)
@@ -157,18 +165,14 @@ test_deployment() {
 }
 
 # AI-generated comment: Implemented deploy function with basic watchdog mechanism
-deploy() {
-    log "Deploying and watching for changes"
-    while true; do
-        if test_unit && stage; then
-            log "Deployment successful. Watching for changes"
-            inotifywait -r -e modify,create,delete ./detection
-            log "Changes detected. Redeploying"
-        else
-            log "ERROR: Deployment failed. Waiting 60 seconds before retrying"
-            sleep 60
-        fi
-    done
+publish() {
+    # AI-generated comment: Run sam deploy synchronously and capture its output
+    log "Publishing prod application (est. 20s)"
+    if ! sam deploy --config-env prod --no-fail-on-empty-changeset | tee publish.log; then
+        log "ERROR: SAM deploy failed. Check deploy.log for details."
+        cat publish.log
+        return 1
+    fi
 }
 
 # AI-generated comment: Added cleanup function to handle interrupts and exits
@@ -177,10 +181,10 @@ cleanup() {
     # Add any necessary cleanup steps here
     exit 0
 }
+
 main() {
     # Initialize flags
-    local run_stage=false
-    local run_deploy=false
+    local run_publish=false
     local run_test_unit=false
     local run_test_integration=false
     local run_test_deployment=false
@@ -192,10 +196,6 @@ main() {
             -h|--help)
                 help_function
                 exit 0
-                ;;
-            -s|--stage)
-                run_stage=true
-                shift 1
                 ;;
             -u|--test-unit)
                 run_test_unit=true
@@ -211,12 +211,11 @@ main() {
                 ;;
             -t|--test-all)
                 run_test_all=true
-                # TODO possibly get rid of this
-                clear
                 shift 1
                 ;;
             -p|--publish)
-                run_deploy=true
+                run_test_all=true
+                run_publish=true
                 shift 1
                 ;;
             *)
@@ -247,12 +246,8 @@ main() {
         test_deployment || { log "Deployment tests failed"; exit 1; }
     fi
 
-    if [[ "$run_stage" == true ]]; then
-        stage || exit 1
-    fi
-
-    if [[ "$run_deploy" == true ]]; then
-        deploy
+    if [[ "$run_publish" == true ]]; then
+       publish 
     fi
 }
 

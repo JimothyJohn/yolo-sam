@@ -21,6 +21,19 @@ def test_body() -> dict:
     }
 
 
+# AI-generated comment: Helper function to assert CORS headers
+@pytest.fixture(scope="function")
+def assert_cors_headers():
+
+    def _assert_cors_headers(headers: dict[str, str]):
+        assert "Access-Control-Allow-Origin" in headers
+        assert headers["Access-Control-Allow-Origin"] == "*"
+        assert "Access-Control-Allow-Methods" in headers
+        assert "Access-Control-Allow-Headers" in headers
+
+    return _assert_cors_headers
+
+
 @pytest.fixture(scope="function")
 def apigw_event_factory() -> dict:
     """Factory fixture to generate customizable API Gateway events"""
@@ -148,7 +161,11 @@ def assert_post_response():
     return _assert_post_response
 
 
-def assert_error_response(body, status_code, expected_error) -> None:
-    assert status_code == STATUS_CODE_BAD_REQUEST
-    assert "error" in body
-    assert body["error"] == expected_error
+@pytest.fixture(scope="function")
+def assert_error_response():
+    def _assert_error_response(body, status_code, expected_error) -> None:
+        assert status_code == STATUS_CODE_BAD_REQUEST
+        assert "error" in body
+        assert body["error"] == expected_error
+
+    return _assert_error_response

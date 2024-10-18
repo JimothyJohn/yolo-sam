@@ -202,25 +202,48 @@ def api_error_handler(func):
 def lambda_handler(event: dict, context: Any) -> dict:
     logger.info("Lambda function invoked")
 
+    # Define CORS headers
+    cors_headers = {
+        "Access-Control-Allow-Origin": "*",  # AI-generated comment: Allow requests from any origin. Adjust as needed for security.
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",  # AI-generated comment: Specify allowed HTTP methods.
+        "Access-Control-Allow-Headers": "Content-Type",  # AI-generated comment: Specify allowed headers.
+    }
+
+    if event.get("httpMethod") == "OPTIONS":
+        # AI-generated comment: Handle preflight OPTIONS request for CORS
+        return {
+            "statusCode": 200,
+            "headers": cors_headers,
+            "body": json.dumps({"message": "CORS preflight check successful"}),
+        }
+
     if event.get("httpMethod") == "GET":
         return {
             "statusCode": 200,
             "body": json.dumps(GET_RESPONSE),
-            "headers": {"Content-Type": "application/json"},
+            "headers": {**cors_headers, "Content-Type": "application/json"},
         }
 
-    # AI-generated comment: Simplified body extraction and validation
     try:
         body = json.loads(event.get("body", "{}"))
     except json.JSONDecodeError:
         return {
             "statusCode": 400,
             "body": json.dumps({"error": "Invalid JSON in request body"}),
+            "headers": cors_headers,
         }
 
     is_valid, validated_body = validate_body(body)
     if not is_valid:
-        return {"statusCode": 400, "body": json.dumps(validated_body)}
+        return {
+            "statusCode": 400,
+            "body": json.dumps(validated_body),
+            "headers": cors_headers,
+        }
 
     detections = detect(validated_body)
-    return {"statusCode": 200, "body": json.dumps({"detections": detections})}
+    return {
+        "statusCode": 200,
+        "body": json.dumps({"detections": detections}),
+        "headers": cors_headers,
+    }

@@ -47,6 +47,7 @@ def test_detect_successful_post(
     api_gateway_url: str,
     test_body: dict,
     assert_post_response: Callable[[Dict[str, Any]], None],
+    assert_cors_headers: Callable[[dict[str, str]], None],
 ):
     start_time = time()
     response = requests.post(
@@ -54,6 +55,7 @@ def test_detect_successful_post(
     )
     response_time = time() - start_time
     assert_post_response(response.json(), response.status_code)
+    assert_cors_headers(response.headers)
 
     # Performance Assertion
     max_allowed_time = 10.0  # seconds
@@ -65,23 +67,27 @@ def test_detect_successful_post(
 def test_detect_successful_get(
     api_gateway_url: str,
     assert_get_response: Callable[[Dict[str, Any]], None],
+    assert_cors_headers: Callable[[dict[str, str]], None],
 ):
-    ret = requests.get(api_gateway_url)
-    assert_get_response(ret.json(), ret.status_code)
+    response = requests.get(api_gateway_url)
+    assert_get_response(response.json(), response.status_code)
+    assert_cors_headers(response.headers)
 
 
 def test_detect_post_missing_image(
     api_gateway_url: str,
+    assert_cors_headers: Callable[[dict[str, str]], None],
 ) -> None:
-    ret = requests.post(
+    response = requests.post(
         api_gateway_url,
         json={"conf_thres": 0.6, "iou_thres": 0.4},
         headers={"Content-Type": CONTENT_TYPE_JSON},
     )
-    assert ret.status_code == 400
-    body = ret.json()
+    assert response.status_code == 400
+    body = response.json()
     assert "error" in body
     assert body["error"] == "Missing 'image' in request body"
+    assert_cors_headers(response.headers)
 
 
 @pytest.mark.parametrize(
@@ -109,10 +115,13 @@ def test_detect_post_invalid_fields(
     field: str,
     value: Any,
     expected_error: str,
+    assert_cors_headers: Callable[[dict[str, str]], None],
+    assert_error_response: Callable[[Dict[str, Any]], None],
 ) -> None:
     body = test_body.copy()
     body[field] = value
-    ret = requests.post(
+    response = requests.post(
         api_gateway_url, json=body, headers={"Content-Type": "application/json"}
     )
-    assert_error_response(ret.json(), ret.status_code, expected_error)
+    assert_error_response(response.json(), response.status_code, expected_error)
+    assert_cors_headers(response.headers)
