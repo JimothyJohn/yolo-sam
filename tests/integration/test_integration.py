@@ -1,7 +1,6 @@
 import os
 import pytest
 import requests
-import json
 from tests.fixtures import *
 from time import time
 from typing import Any, Dict, Callable

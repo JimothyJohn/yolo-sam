@@ -502,3 +502,6 @@ images/
 events/
 *.env
 outputs/
+models/*
+.agent/
+.benchmarks/

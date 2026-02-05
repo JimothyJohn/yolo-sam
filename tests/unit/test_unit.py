@@ -2,8 +2,7 @@ import json
 import pytest
 from detection.app import lambda_handler, api_error_handler
 from tests.fixtures import *
-import pytest
-import json
+import base64
 from typing import Callable, Any
 
 pytestmark = pytest.mark.unit

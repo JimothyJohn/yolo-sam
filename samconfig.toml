@@ -1,10 +1,10 @@
 # More information about the configuration file can be found here:
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
-version = 0.1
+version = 0.2
 
 [default]
 [default.global.parameters]
-stack_name = "yolo-sam"
+stack_name = "cerebro"
 
 [default.build.parameters]
 cached = true
@@ -17,7 +17,7 @@ lint = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
-s3_prefix = "yolo-sam"
+s3_prefix = "cerebro"
 region = "us-east-1"
 image_repositories = []
 
@@ -35,13 +35,13 @@ warm_containers = "EAGER"
 
 [dev]
 [dev.global.parameters]
-stack_name = "yolo-sam-dev"
+stack_name = "cerebro-dev"
 
 [dev.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 resolve_s3 = true
-s3_prefix = "yolo-sam-dev"
+s3_prefix = "cerebro-dev"
 region = "us-east-1"
 parameter_overrides = "Environment=\"dev\""
 image_repositories = []
@@ -51,13 +51,13 @@ watch = true
 
 [prod]
 [prod.global.parameters]
-stack_name = "yolo-sam-prod"
+stack_name = "cerebro-prod"
 
 [prod.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
-s3_prefix = "yolo-sam-prod"
+s3_prefix = "cerebro-prod"
 region = "us-east-1"
 parameter_overrides = "Environment=prod"
 

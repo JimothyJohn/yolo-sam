@@ -24,19 +24,27 @@ EOF
 # Main function of the script
 main() {
 
-    # Determine the CPU architecture
-    cpu_arch=$(uname -m)
-    # Builds ONNX model 9 instead of 10
-    local TAG="8.1.47-cpu"
+    # Export model using local environment
+    echo "Exporting YOLOv8n model to ONNX..."
+    
+    # Check if ultralytics is installed
+    if ! uv run python -c "import ultralytics" &> /dev/null; then
+        echo "Error: ultralytics is not installed. Please run 'pip install ultralytics' or install dev dependencies."
+        exit 1
+    fi
 
-    # Deploy updates to AWS
-    docker run --rm -it \
-        -v $(pwd):/workspace \
-        -w /workspace \
-        ultralytics/ultralytics:"$TAG" \
-        yolo detect export model=yolov8n.pt format=onnx && \
-        rm yolov8n.pt && \
-        mv yolov8n.onnx detection/models
+    # Run export
+    uv run yolo export model=yolov8n.pt format=onnx
+    
+    # Move artifact
+    if [[ -f "yolov8n.onnx" ]]; then
+        mv yolov8n.onnx detection/models/
+        echo "Export complete: detection/models/yolov8n.onnx"
+        rm -f yolov8n.pt
+    else
+        echo "Error: Export failed, yolov8n.onnx not found."
+        exit 1
+    fi
 }
 
 main "$@"

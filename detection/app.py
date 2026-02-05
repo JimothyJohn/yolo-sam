@@ -6,9 +6,19 @@ import logging
 from io import BytesIO
 from typing import Dict, List, Any
 from PIL import Image
-import yaml
-from yolov8_onnx import YOLOv8
-from utils import GET_RESPONSE
+
+try:
+    # Local development (package-relative imports)
+    from .onnx_detector import OnnxDetector, DetectionResult
+    from .utils import GET_RESPONSE
+    from .coco import CocoClassMapper
+    from .config import MODEL_PATH
+except ImportError:
+    # Lambda environment (flat imports)
+    from onnx_detector import OnnxDetector, DetectionResult
+    from utils import GET_RESPONSE
+    from coco import CocoClassMapper
+    from config import MODEL_PATH
 import functools
 from functools import lru_cache
 
@@ -20,48 +30,15 @@ logger.setLevel(logging.DEBUG)  # Set to DEBUG to capture all levels of logs
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
-class CocoClassMapper:
-    def __init__(self, coco_yaml_path: str):
-        self.class_id_to_name = self._load_class_names(coco_yaml_path)
-
-    @staticmethod
-    def _load_class_names(yaml_path: str) -> Dict[int, str]:
-        """
-        Loads the class ID to name mapping from the coco.yaml file.
-
-        :param yaml_path: Path to the coco.yaml file.
-        :return: A dictionary mapping class IDs to their names.
-        """
-        try:
-            with open(yaml_path, "r") as file:
-                data = yaml.safe_load(file)
-                return {int(k): v for k, v in data["names"].items()}
-        except Exception as e:
-            logger.error(f"Error loading class names from {yaml_path}: {e}")
-            raise
-
-    def map_class_names(self, detections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Maps class IDs in the detections to their corresponding class names.
-
-        :param detections: A list of detection dictionaries.
-        :return: The enriched list of detections with class names.
-        """
-        for detection in detections:
-            class_id = detection.get("class_id")
-            detection["class_name"] = self.class_id_to_name.get(class_id, "Unknown")
-        return detections
-
-
 @lru_cache(maxsize=1)
-def get_yolov8_detector():
+def get_detector():
     """
-    AI-generated comment: Cached initialization of YOLOv8 detector to improve performance on subsequent invocations.
+    AI-generated comment: Cached initialization of OnnxDetector to improve performance on subsequent invocations.
     """
-    return YOLOv8(
-        os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "models", "yolov8n.onnx"
-        )
+    model_type = "rf-detr" if "rf-detr" in MODEL_PATH.lower() else "yolov8"
+    return OnnxDetector(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), MODEL_PATH),
+        model_type=model_type,
     )
 
 
@@ -75,7 +52,7 @@ def get_class_mapper():
     )
 
 
-def detect(body: Dict[str, Any]) -> Dict[str, Any]:
+def detect(body: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Perform object detection on an image and return detections with class names.
 
@@ -86,6 +63,10 @@ def detect(body: Dict[str, Any]) -> Dict[str, Any]:
 
     # Get parameters
     img_b64 = body["image"]
+    # This size will need to be changed based on the model being used.
+    # RF-DETR Nano for example needs 384
+    # SIZE = 384
+    # Yolov8 Nano needs 640
     SIZE = 640
     conf_thres = body.get("conf_thres", 0.7)
     iou_thres = body.get("iou_thres", 0.5)
@@ -97,18 +78,33 @@ def detect(body: Dict[str, Any]) -> Dict[str, Any]:
     # Open and resize image
     try:
         img = Image.open(BytesIO(base64.b64decode(img_b64.encode("ascii"))))
-        img_resized = img.resize((SIZE, SIZE))
-        logger.debug("Image successfully decoded and resized")
+        # Image resizing is handled inside OnnxDetector logic for YOLOv8 (via utils.prepare_input)
+        # But wait, utils.prepare_input takes the PIL image.
+        # The old app.py resized it MANUALLY before passing to detector:
+        # img_resized = img.resize((SIZE, SIZE))
+        # Then detector was called with img_resized.
+        # My new OnnxDetector._predict_yolov8 calls utils.prepare_input(img, size).
+        # utils.prepare_input RESIZES it again based on logic.
+        # So I should pass the ORIGINAL image to OnnxDetector?
+        # Let's check utils.prepare_input: it takes (img, size), calculates ratio, resizes.
+        # So yes, I should pass the PIL image directly.
+
+        logger.debug("Image successfully decoded")
     except Exception as e:
         logger.error(f"Error processing image: {e}")
         raise
 
     # Infer result
     try:
-        yolov8_detector = get_yolov8_detector()
-        detections = yolov8_detector(
-            img_resized, size=SIZE, conf_thres=conf_thres, iou_thres=iou_thres
+        detector = get_detector()
+        # OnnxDetector expects PIL Image
+        detection_result: DetectionResult = detector(
+            img, size=SIZE, conf_thres=conf_thres, iou_thres=iou_thres
         )
+
+        # Convert to list of dicts for API response compatibility
+        detections = detection_result.to_dict_list()
+
         logger.info(f"Detection completed. Found {len(detections)} objects.")
     except Exception as e:
         logger.error(f"Error during inference: {e}")
