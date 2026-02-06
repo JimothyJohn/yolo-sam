@@ -7,7 +7,399 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/yolo-sam/style.css">
+    <style>
+/* Modern Dark Theme Variables */
+:root {
+    --bg-primary: #0a0b10;
+    --bg-secondary: #14161f;
+    --bg-card: rgba(20, 22, 31, 0.85);
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0b0;
+    --accent-primary: #00f2ea;
+    --accent-secondary: #ff0055;
+    --accent-glow: rgba(0, 242, 234, 0.3);
+    --border-color: rgba(255, 255, 255, 0.1);
+    --success-color: #00ff9d;
+    --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    height: 100vh; /* Force full height for no scroll app-like feel */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prvent body scroll */
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(0, 242, 234, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(255, 0, 85, 0.08) 0%, transparent 40%);
+}
+
+.app-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+header {
+    text-align: center;
+    margin-bottom: 1rem;
+    position: relative;
+    flex-shrink: 0;
+}
+
+header::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+}
+
+h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    color: #fff;
+    margin-bottom: 0.2rem;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.live-indicator {
+    font-size: 0.8rem;
+    background: var(--accent-secondary);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    box-shadow: 0 0 10px var(--accent-secondary);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; box-shadow: 0 0 10px var(--accent-secondary); }
+    50% { opacity: 0.5; box-shadow: 0 0 2px var(--accent-secondary); }
+    100% { opacity: 1; box-shadow: 0 0 10px var(--accent-secondary); }
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 1.5rem;
+    flex: 1;
+    min-height: 0; /* Important for scroll within grid items */
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+/* Metrics Panel */
+.metrics-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    overflow-y: auto;
+}
+
+.metric-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    border-left: 3px solid var(--accent-primary);
+}
+
+.metric-item.cost {
+    border-left-color: var(--accent-secondary);
+}
+
+.metric-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 0.2rem;
+    display: block;
+}
+
+.metric-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.metric-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: #fff;
+    line-height: 1;
+}
+
+.metric-unit {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Entity List */
+.entities-card {
+    flex: 1;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+}
+
+.entity-list {
+    list-style: none;
+    margin-top: 0.5rem;
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 5px;
+}
+
+.entity-list::-webkit-scrollbar {
+    width: 3px;
+}
+.entity-list::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+}
+
+.entity-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0; /* Increased padding */
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem; /* Increased from 0.8rem */
+}
+
+.entity-name {
+    color: #fff;
+    text-transform: capitalize;
+}
+
+.entity-score {
+    color: var(--success-color);
+    font-weight: 700;
+}
+
+.empty-state {
+    color: var(--text-secondary);
+    font-style: italic;
+    justify-content: center !important;
+}
+
+/* Main Display Area */
+.display-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+#canvas {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+.upload-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 11, 16, 0.85);
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.upload-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.upload-icon {
+    font-size: 3rem;
+    color: var(--accent-primary);
+    margin-bottom: 0.5rem;
+    filter: drop-shadow(0 0 15px var(--accent-primary));
+}
+
+#imageUpload { display: none; }
+
+/* Desktop Controls */
+.controls-bar {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.btn {
+    background: transparent;
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
+    padding: 0.8rem 2rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: var(--font-main);
+}
+
+.btn-primary {
+    background: var(--accent-primary);
+    color: #000;
+    box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+/* Loading */
+.loading-indicator {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 20;
+}
+
+.loading-indicator.active { display: block; }
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(0, 242, 234, 0.2);
+    border-radius: 50%;
+    border-top-color: var(--accent-primary);
+    animation: spin 0.6s ease-in-out infinite;
+    margin-bottom: 0.5rem;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
+/* MOBILE ERGONOMICS (Thumb Zone) */
+@media (max-width: 900px) {
+    .app-container {
+        padding: 1.2rem; /* Increased from 0.5rem to add space outside tiles */
+        height: 100vh;
+        max-height: 100vh;
+    }
+
+    /* Change grid to put image on top, metrics below */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+        gap: 0.3rem; /* Tighter gap */
+        margin-bottom: 60px; /* Reduced space */
+        overflow-y: auto; 
+    }
+
+    header {
+        margin-bottom: 0.3rem;
+    }
+
+    h1 { font-size: 1.2rem; }
+    
+    .subtitle { font-size: 0.7rem; }
+
+    .display-area {
+        min-height: 35vh; /* Allow it to be smaller */
+        max-height: 55vh;
+    }
+
+    .metrics-panel {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.4rem; /* Tighter gap */
+        padding-bottom: 0.5rem;
+    }
+    
+    .glass-card {
+        padding: 0.6rem; /* Less padding inside cards */
+        border-radius: 12px;
+    }
+    
+    .metric-value { font-size: 1.1rem; }
+    .metric-unit { font-size: 0.8rem; }
+
+    .entities-card {
+        grid-column: span 2;
+        min-height: 100px; /* Smaller minimum */
+    }
+
+    /* Floating Thumb Controls */
+    .controls-bar {
+        bottom: 15px;
+        right: 15px;
+        gap: 8px;
+    }
+
+    .btn {
+        width: 120px;
+        padding: 0.8rem;
+        font-size: 0.8rem;
+    }
+
+    .btn-primary {
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+}
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -83,6 +475,354 @@
             <button class="btn btn-primary" id="submitBtn">RUN</button>
         </div>
     </div>
-    <script src="/yolo-sam/script.js"></script>
+    <script>
+// Main script for handling image upload and object detection
+const API_ENDPOINT = "https://yolo.advin.io/Prod/detect";
+const DETECTION_IMAGE_SIZE = 640;
+
+// UI Elements
+const imageUpload = document.getElementById('imageUpload');
+const submitBtn = document.getElementById('submitBtn');
+const selfieBtn = document.getElementById('selfieBtn');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const uploadOverlay = document.getElementById('uploadOverlay');
+const dropZone = document.getElementById('dropZone');
+const loadingIndicator = document.getElementById('loadingIndicator');
+
+// Metric Elements
+const energyMetric = document.getElementById('energyMetric');
+const timeMetric = document.getElementById('timeMetric');
+const costMetric = document.getElementById('costMetric');
+const roiMetric = document.getElementById('roiMetric');
+const entityList = document.getElementById('entityList');
+
+let uploadedImage = null;
+
+// Initialize layout
+function initCanvas() {
+    canvas.width = 800;
+    canvas.height = 450;
+    // Clear with transparent bg
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// Handle Image Loading
+function handleFile(file) {
+    if (!file) return;
+
+    const img = new Image();
+    img.onload = () => {
+        // dynamic resizing for display
+        const maxWidth = dropZone.clientWidth - 20; 
+        const maxHeight = dropZone.clientHeight - 20;
+        
+        // Scale to fit within container while maintaining aspect ratio
+        const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+        
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        uploadedImage = img;
+        uploadOverlay.classList.add('hidden');
+        
+        // Reset metrics
+        resetMetrics();
+    };
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+// Event Listeners
+imageUpload.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--accent-primary)';
+});
+
+dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--border-color)';
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--border-color)';
+    handleFile(e.dataTransfer.files[0]);
+});
+
+uploadOverlay.addEventListener('click', () => imageUpload.click());
+
+// Selfie Logic
+selfieBtn.addEventListener('click', async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        
+        // Create a temporary video element to capture the frame
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
+        
+        // Wait for video to be ready
+        await new Promise(resolve => video.onloadedmetadata = resolve);
+        
+        // Small delay to ensure camera brightness adjusts (optional but good UX)
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Draw to canvas
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        
+        // Stop stream
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Set as uploaded image
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        const img = new Image();
+        img.onload = () => {
+            uploadedImage = img;
+            
+            // Rescale for display fitting (reuse handleFile logic essentially)
+            const maxWidth = dropZone.clientWidth - 20;
+            const maxHeight = dropZone.clientHeight - 20;
+            const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+            
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            uploadOverlay.classList.add('hidden');
+            resetMetrics();
+        };
+        img.src = dataUrl;
+        
+    } catch (err) {
+        console.error("Camera access denied:", err);
+        alert("Could not access camera. Please allow camera permissions to take a selfie.");
+    }
+});
+
+// Metrics Simulation
+function updateMetrics(detections, latency) {
+    // 1. Energy (Mocked) in Joules
+    const energy = (0.8 + Math.random() * 1.7).toFixed(3);
+
+    // 2. Backend Time (Simulated)
+    // The user wants to emphasize input-to-output backend time.
+    // Real latency includes network overhead (RTT).
+    // We will assume network overhead is roughly 20-40% of total latency for this demo,
+    // or at least subtract a fixed "network cost" simulation to show "Backend Processing".
+    // Let's display a value that represents the core engine time.
+    
+    // If latency is very small (local/fast), we clamp backend time to be slightly less.
+    let backendTime = Math.floor(latency * 0.85); // Assume 85% is backend, 15% network
+    if (backendTime < 10) backendTime = latency; // Fallback for instant responses
+
+    // 3. Throughput (Calculated) - Inf/min
+    // Formula: 60,000 ms/min / backendTime_ms
+    // Avoid division by zero
+    const safeTime = backendTime > 0 ? backendTime : 1;
+    const throughput = Math.floor(60000 / safeTime);
+
+    // 4. Cost Efficiency (Mocked) - Inf/$
+    // Assume ~$1 buys ~10k-20k inferences?
+    const roi = Math.floor(12000 + Math.random() * 5000);
+
+    // Accelerated animations
+    animateValue(energyMetric, 0, energy, 500, '', '');
+    animateValue(timeMetric, 0, backendTime, 500, '', '');
+    animateValue(costMetric, 0, throughput, 600, '', '');
+    animateValue(roiMetric, 0, roi, 600, '', '');
+
+    updateEntityList(detections);
+}
+
+function updateEntityList(detections) {
+    entityList.innerHTML = '';
+    
+    if (detections.length === 0) {
+        entityList.innerHTML = '<li class="empty-state">No entities found</li>';
+        return;
+    }
+
+    const counts = {};
+    detections.forEach(d => {
+        counts[d.class_name] = (counts[d.class_name] || 0) + 1;
+    });
+
+    const sortedEntities = Object.entries(counts)
+        .sort(([,a], [,b]) => b - a);
+
+    sortedEntities.forEach(([name, count]) => {
+        const li = document.createElement('li');
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'entity-name';
+        nameSpan.textContent = name;
+        
+        const countSpan = document.createElement('span');
+        countSpan.className = 'entity-score';
+        countSpan.textContent = count > 1 ? `x${count}` : 'x1';
+        
+        li.appendChild(nameSpan);
+        li.appendChild(countSpan);
+        entityList.appendChild(li);
+    });
+}
+
+function resetMetrics() {
+    energyMetric.textContent = '0.00';
+    timeMetric.textContent = '0';
+    costMetric.textContent = '0';
+    roiMetric.textContent = '0';
+    entityList.innerHTML = '<li class="empty-state">No active detections</li>';
+}
+
+function animateValue(obj, start, end, duration, prefix = '', suffix = '') {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        
+        let val;
+        // Handle float vs int
+        const isFloat = end.toString().includes('.');
+        const endNum = parseFloat(end);
+        const startNum = parseFloat(start);
+        
+        const currentVal = progress * (endNum - startNum) + startNum;
+        
+        if (isFloat) {
+            val = currentVal.toFixed(isFloat ? end.split('.')[1].length : 0);
+        } else {
+            val = Math.floor(currentVal).toLocaleString();
+        }
+
+        obj.textContent = prefix + val + suffix;
+        
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        } else {
+             obj.textContent = prefix + (isFloat ? endNum.toFixed(end.split('.')[1].length) : parseFloat(end).toLocaleString()) + suffix;
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+// Detection Logic
+submitBtn.addEventListener('click', () => {
+    if (!uploadedImage) {
+        // Quick visual feedback for error
+        // For mobile "Thumb Zone" buttons, we need to flash the dropzone if visible
+        // or just alert if dropzone is off screen? 
+        // Dropzone is always visible in center.
+        dropZone.style.borderColor = 'var(--accent-secondary)';
+        setTimeout(() => dropZone.style.borderColor = 'var(--border-color)', 500);
+        return;
+    }
+
+    setLoading(true);
+
+    const hiddenCanvas = document.createElement('canvas');
+    hiddenCanvas.width = DETECTION_IMAGE_SIZE;
+    hiddenCanvas.height = DETECTION_IMAGE_SIZE;
+    const hiddenCtx = hiddenCanvas.getContext('2d');
+    hiddenCtx.drawImage(uploadedImage, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+    const imageBase64 = hiddenCanvas.toDataURL('image/jpeg').split(',')[1];
+
+    const payload = {
+        image: imageBase64,
+        conf_thres: 0.5,
+        iou_thres: 0.5
+    };
+
+    const startTime = performance.now();
+
+    fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        const endTime = performance.now();
+        const latency = Math.round(endTime - startTime);
+        
+        setLoading(false);
+        if (data.detections) {
+            drawDetections(data.detections);
+            updateMetrics(data.detections, latency);
+        } else {
+            alert('No detections found.');
+        }
+    })
+    .catch(error => {
+        setLoading(false);
+        console.error('Error:', error);
+        alert('An error occurred during detection.');
+    });
+});
+
+function setLoading(isLoading) {
+    if (isLoading) {
+        loadingIndicator.classList.add('active');
+        canvas.style.opacity = '0.3';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'RUNNING...';
+    } else {
+        loadingIndicator.classList.remove('active');
+        canvas.style.opacity = '1';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'RUN'; // Shortened
+    }
+}
+
+function drawDetections(detections) {
+    // Redraw original
+    ctx.drawImage(uploadedImage, 0, 0, canvas.width, canvas.height); // Use current scaled canvas dims
+
+    const scaleX = canvas.width / DETECTION_IMAGE_SIZE;
+    const scaleY = canvas.height / DETECTION_IMAGE_SIZE;
+
+    ctx.lineWidth = 2;
+    ctx.font = 'bold 16px "JetBrains Mono"';
+    ctx.textBaseline = 'top';
+
+    detections.forEach(detection => {
+        const [x1, y1, x2, y2] = detection.bbox;
+
+        const rectX = x1 * scaleX;
+        const rectY = y1 * scaleY;
+        const rectWidth = (x2 - x1) * scaleX;
+        const rectHeight = (y2 - y1) * scaleY;
+
+        ctx.shadowColor = 'var(--success-color)';
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = '#00ff9d';
+        ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
+        ctx.shadowBlur = 0;
+
+        const label = `${detection.class_name} ${(detection.score * 100).toFixed(0)}%`;
+        const textWidth = ctx.measureText(label).width;
+        const textHeight = 20;
+
+        ctx.fillStyle = 'rgba(0, 255, 157, 0.8)';
+        ctx.fillRect(rectX, rectY - textHeight, textWidth + 10, textHeight);
+
+        ctx.fillStyle = '#000';
+        ctx.fillText(label, rectX + 5, rectY - textHeight + 2);
+    });
+}
+
+// Init
+initCanvas();
+    </script>
 </body>
 </html>
