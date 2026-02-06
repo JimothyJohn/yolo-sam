@@ -3,6 +3,7 @@
 # $0bject Detection
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1PcYQoKgmpfmB7bsmn2QXFtu3CLRVbJ7N?usp=sharing)
+[![Demo](https://img.shields.io/badge/Demo-Live-brightgreen?logo=github)](https://jimothyjohn.github.io/yolo-sam/)
 
 A cost-effective way to detect objects in your environment! Each query completes in about a second and costs fractions of a penny.
 
@@ -11,17 +12,8 @@ A cost-effective way to detect objects in your environment! Each query completes
 ## Quickstart
 
 ```bash
-# Test the demo endpoint using the sample CLI
-pip install requests Pillow
-python client.py -i ./path/to/image.jpg
-# Writes results to output_image.jpg
-
-# OR create your own version
-
-# Export nano model
-bash ./utils/ExportONNX.sh
-# Format, validate, build, and test
-bash ./Quickstart -t
+# Format, validate, build, test, and publish 
+./Quickstart -p
 ```
 
 ### Powered by:

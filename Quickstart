@@ -65,11 +65,20 @@ command_exists() {
 check_dependencies() {
     local missing_deps=()
 
-    for dep in sam uv; do
-        if ! command_exists "$dep"; then
-            missing_deps+=("$dep")
+    if ! command_exists "sam"; then
+        missing_deps+=("sam")
+    fi
+
+    if ! command_exists "uv"; then
+        log "uv not found. Installing..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        # Attempt to add to path for current session
+        if [[ -f "$HOME/.cargo/env" ]]; then
+            . "$HOME/.cargo/env"
+        elif [[ -f "$HOME/.local/bin/env" ]]; then # Possible alternative location
+             . "$HOME/.local/bin/env"
         fi
-    done
+    fi
 
     if [ ${#missing_deps[@]} -ne 0 ]; then
         echo "Error: The following required dependencies are missing:"
@@ -132,8 +141,6 @@ check_and_export_model() {
             log "ERROR: Model export failed."
             return 1
         fi
-    else
-        log "Model found at $full_model_path."
     fi
     return 0
 }
@@ -150,7 +157,7 @@ validate_and_build() {
         return 1
     fi
 
-    if ! sam validate > /dev/null 2>&1; then
+    if ! sam validate --region us-east-1 > /dev/null 2>&1; then
         log "ERROR: SAM template validation failed"
         return 1
     fi
@@ -165,7 +172,7 @@ validate_and_build() {
 }
 
 test_unit() {
-    log "Running unit tests"
+    log "Running unit tests..."
     if ! uv run python -m pytest -q -m unit; then
         log "ERROR: Unit tests failed"
         return 1
@@ -178,10 +185,14 @@ test_integration() {
     # Check for docker availability
     if ! command_exists "docker" || ! docker info > /dev/null 2>&1; then
         log "WARNING: Docker is not available. Skipping integration tests (SAM Local requires Docker)."
+        log "To run integration tests, please install Docker:"
+        log "  - macOS: https://www.docker.com/products/docker-desktop/ or 'brew install --cask docker'"
+        log "  - Linux: https://docs.docker.com/engine/install/"
+        log "  - Windows: https://docs.docker.com/desktop/install/windows-install/"
         return 0
     fi
 
-    log "[$(date +'%Y-%m-%d %H:%M:%S')] Running integration test procedure [5s]"
+    log "[$(date +'%Y-%m-%d %H:%M:%S')] Running integration test procedure [5s]..."
     sam local start-api --skip-pull-image --log-file ./local_api.log > /dev/null 2>&1 &
     SAM_PID=$!
 
@@ -215,7 +226,7 @@ test_deployment() {
 
     sleep 5
 
-    log "Running deployment tests"
+    log "Running deployment tests..."
     export STACK_NAME="cerebro-${deploy_env}"
     export AWS_SAM_STACK_NAME=$STACK_NAME
     if $PYTHON_CMD -m pytest -q -m deployment; then
@@ -246,7 +257,12 @@ main() {
     local run_publish=false
     local run_test_unit=false
     local run_test_integration=false
-    local run_test_deployment=false
+    local run_test_deployment=true
+
+    trap cleanup SIGINT SIGTERM
+
+    check_dependencies
+    check_and_export_model
 
     # Parse arguments
     while [[ "$#" -gt 0 ]]; do
@@ -255,16 +271,24 @@ main() {
                 help_function
                 exit 0
                 ;;
-            -t|--test-all|--test)
-                # Maps to local tests only, per description
-                run_test_unit=true
-                run_test_integration=true
-                run_test_deployment=true
-                shift 1
+            -u|--unit-test)
+                test_unit || { log "Unit tests failed"; exit 1; }
+                exit 0
+                ;;
+            -i|--integration-test)
+                test_integration || { log "Integration tests failed"; exit 1; }
+                exit 0
+                ;;
+            -d|--deployment-test)
+                test_deployment || { log "Deployment tests failed"; exit 1; }
+                exit 0
                 ;;
             -p|--publish)
-                run_publish=true
-                shift 1
+                test_integration || { log "Integration tests failed"; exit 1; }
+                test_unit || { log "Unit tests failed"; exit 1; }
+                validate_and_build || exit 1
+                publish || { log "Publish failed"; exit 1; }
+                exit 0
                 ;;
             *)
                 echo "Unknown parameter passed: $1"
@@ -273,34 +297,6 @@ main() {
                 ;;
         esac
     done
-
-    trap cleanup SIGINT SIGTERM
-
-    check_dependencies
-
-    # Check model existence early, before any tests
-    check_and_export_model
-
-    if [[ "$run_test_unit" == true ]]; then
-        test_unit || { log "Unit tests failed"; exit 1; }
-    fi
-
-    # Build and Validate for other modes
-    validate_and_build || exit 1
-    if [[ "$run_test_integration" == true ]]; then
-        test_integration || { log "Integration tests failed"; exit 1; }
-    fi
-
-    if [[ "$run_test_deployment" == true ]]; then
-        test_deployment || { log "Deployment tests failed"; exit 1; }
-    fi
-
-    if [[ "$run_publish" == true ]]; then
-        test_unit || { log "Unit tests failed"; exit 1; }
-        test_integration || { log "Integration tests failed"; exit 1; }
-        test_deployment || { log "Deployment tests failed"; exit 1; }
-        publish
-    fi
 }
 
 main "$@"

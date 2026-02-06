@@ -2,19 +2,86 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>YOLOv8 Object Detection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cerebro Neural Interface</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- AI-generated comment: Main container for the application -->
-    <div class="container">
-        <h1>YOLOv8 Object Detection</h1>
-        <!-- AI-generated comment: Input for image upload -->
-        <input type="file" id="imageUpload" accept="image/*" />
-        <!-- AI-generated comment: Button to submit the image for detection -->
-        <button id="submitBtn">Detect Objects</button>
-        <!-- AI-generated comment: Canvas to display the image and detections -->
-        <canvas id="canvas"></canvas>
+    <div class="app-container">
+        <header>
+            <h1>CEREBRO <span class="live-indicator">LIVE</span></h1>
+            <div class="subtitle">Cost-Effective Vision System</div>
+        </header>
+
+        <main class="dashboard-grid">
+            <!-- Metrics Panel -->
+            <aside class="metrics-panel">
+                <div class="glass-card metric-item">
+                    <span class="metric-label">Compute Energy</span>
+                    <div class="metric-row">
+                        <span class="metric-value" id="energyMetric">0.00</span>
+                        <span class="metric-unit">J</span>
+                    </div>
+                </div>
+
+                <div class="glass-card metric-item">
+                    <span class="metric-label">Response Time</span>
+                    <div class="metric-row">
+                        <span class="metric-value" id="timeMetric">0</span>
+                        <span class="metric-unit">ms</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card metric-item cost">
+                    <span class="metric-label">Detections</span>
+                    <div class="metric-row">
+                        <span class="metric-value" id="costMetric">0</span>
+                        <span class="metric-unit">/min</span>
+                    </div>
+                </div>
+
+                <div class="glass-card metric-item">
+                    <span class="metric-label">Cost</span>
+                    <div class="metric-row">
+                        <span class="metric-value" id="roiMetric">0</span>
+                        <span class="metric-unit">/$</span>
+                    </div>
+                </div>
+
+                <div class="glass-card metric-item entities-card">
+                    <span class="metric-label">Detected Objects</span>
+                    <ul class="entity-list" id="entityList">
+                        <li class="empty-state">No active detections</li>
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- Main Display Area -->
+            <section class="glass-card display-area" id="dropZone">
+                <input type="file" id="imageUpload" accept="image/*" />
+                
+                <canvas id="canvas"></canvas>
+                
+                <div class="upload-overlay" id="uploadOverlay">
+                    <div class="upload-icon">⤓</div>
+                    <div class="upload-text">Drop Image or Click to Upload</div>
+                </div>
+
+                <div class="loading-indicator" id="loadingIndicator">
+                    <div class="spinner"></div>
+                    <div style="color: var(--accent-primary); letter-spacing: 2px;">PROCESSING</div>
+                </div>
+            </section>
+        </main>
+
+        <div class="controls-bar">
+            <button class="btn" onclick="document.getElementById('imageUpload').click()">Select Image</button>
+            <button class="btn" id="selfieBtn">Selfie</button>
+            <button class="btn btn-primary" id="submitBtn">RUN</button>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>
