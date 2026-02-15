@@ -498,3 +498,4 @@ models/*
 .benchmarks/
 *.log*
 .ruff_cache/
+!docs/ophanim.jpg
