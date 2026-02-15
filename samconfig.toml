@@ -31,25 +31,25 @@ warm_containers = "EAGER"
 
 [dev]
 [dev.global.parameters]
-stack_name = "cerebro-dev"
+stack_name = "ophanim-dev"
 
 [dev.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
-s3_prefix = "cerebro-dev"
-parameter_overrides = "Environment=dev"
+s3_prefix = "ophanim-dev"
+parameter_overrides = "Environment=dev StackName=ophanim-dev AppName=ophanim"
 resolve_s3 = true
 resolve_image_repos = true
 
 [prod]
 [prod.global.parameters]
-stack_name = "cerebro-prod"
+stack_name = "ophanim-prod"
 
 [prod.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
-s3_prefix = "cerebro-prod"
-parameter_overrides = "Environment=prod DomainName=cerebro.advin.io HostedZoneId=REPLACE_ME_WITH_HOSTED_ZONE_ID"
+s3_prefix = "ophanim-prod"
+parameter_overrides = "Environment=prod StackName=ophanim-prod AppName=ophanim"
 confirm_changeset = true
 resolve_image_repos = true
 

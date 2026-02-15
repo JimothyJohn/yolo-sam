@@ -8,23 +8,23 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues:
+      - dev
       - prod
-  DomainName:
+  StackName:
     Type: String
-    Default: cerebro.advin.io
-    Description: The custom domain name for the API
-  HostedZoneId:
+    Description: The name of the stack (used for SSM parameter lookup)
+  AppName:
     Type: String
-    Description: The Route53 Hosted Zone ID for the domain.
-    Default: Z0956961135Y664684443 # Default to a placeholder, user should override or I can attempt to find it. actually, better to leave empty or default to something valid if possible. user said "Cerebro.advin.io". I will assume they know the hosted zone ID or will look it up.
-    # Actually, let's just make it a required parameter if we can, or give it a default that assumes the user updates it.
-    # For now, I'll put a placeholder that clearly indicates it needs to be set.
-    Default: REPLACE_ME_WITH_HOSTED_ZONE_ID
+    Default: ophanim
+    Description: The application name (matches the SSM parameter prefix)
+
+Conditions:
+  HasCustomDomain: !Equals [!Ref Environment, prod]
 
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 60
+    Timeout: 30
     MemorySize: 2048
     Tracing: Active
     # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
@@ -72,6 +72,7 @@ Resources:
       Environment:
         Variables:
           ENVIRONMENT: !Ref Environment
+          APP_NAME: !Ref AppName
       SnapStart:
         ApplyOn: None
       Events:
@@ -105,24 +106,24 @@ Resources:
         Ref: ApplicationResourceGroup
       AutoConfigurationEnabled: true
 
-
-
   ApiCertificate:
     Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
     Properties:
-      DomainName: !Ref DomainName
+      DomainName: !Sub "{{resolve:ssm:/${AppName}/${StackName}/domain_name}}"
       ValidationMethod: DNS
       DomainValidationOptions:
-        - DomainName: !Ref DomainName
-          HostedZoneId: !Ref HostedZoneId
+        - DomainName: !Sub "{{resolve:ssm:/${AppName}/${StackName}/domain_name}}"
+          HostedZoneId: !Sub "{{resolve:ssm:/${AppName}/${StackName}/hosted_zone_id}}"
 
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
+    Condition: HasCustomDomain
     Properties:
       DistributionConfig:
         Enabled: true
         Aliases:
-          - !Ref DomainName
+          - !Sub "{{resolve:ssm:/${AppName}/${StackName}/domain_name}}"
         ViewerCertificate:
           AcmCertificateArn: !Ref ApiCertificate
           SslSupportMethod: sni-only
@@ -159,9 +160,10 @@ Resources:
 
   Route53RecordSet:
     Type: AWS::Route53::RecordSet
+    Condition: HasCustomDomain
     Properties:
-      HostedZoneId: !Ref HostedZoneId
-      Name: !Ref DomainName
+      HostedZoneId: !Sub "{{resolve:ssm:/${AppName}/${StackName}/hosted_zone_id}}"
+      Name: !Sub "{{resolve:ssm:/${AppName}/${StackName}/domain_name}}"
       Type: A
       AliasTarget:
         HostedZoneId: Z2FDTNDATAQYW2 # CloudFront Hosted Zone ID (Fixed for all distributions)
@@ -182,7 +184,9 @@ Outputs:
     Value: !GetAtt DetectionFunctionRole.Arn
   CloudFrontDistribution:
     Description: CloudFront Distribution Domain Name
+    Condition: HasCustomDomain
     Value: !GetAtt CloudFrontDistribution.DomainName
   CustomDomain:
     Description: Custom Domain URL
-    Value: !Sub "https://${DomainName}"
+    Condition: HasCustomDomain
+    Value: !Sub "https://{{resolve:ssm:/${AppName}/${StackName}/domain_name}}"

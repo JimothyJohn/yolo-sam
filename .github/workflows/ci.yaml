@@ -1,0 +1,127 @@
+name: Quickstart CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install uv
+      run: curl -lsSf https://astral.sh/uv/install.sh | sh
+
+    - name: Setup AWS SAM CLI
+      uses: aws-actions/setup-sam@v2
+      with:
+        use-installer: true
+
+    - name: Install dependencies
+      run: |
+        uv pip install --system -e .
+        # Install dev dependencies for linting/testing if they aren't in pyproject.toml explicitly
+        # Assuming ruff and pytest are in dev dependencies or need to be installed
+        uv pip install --system ruff pytest
+
+    - name: Lint with ruff
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        uv run ruff check --output-format=github .
+    
+    - name: Format check with ruff
+      run: |
+        uv run ruff format --check .
+
+    - name: SAM Validate
+      run: sam validate --region us-east-1
+
+    - name: SAM Build
+      run: sam build
+
+    - name: Run Unit Tests
+      run: |
+        uv run pytest -m unit
+
+    - name: Run Integration Tests (SAM Local)
+      run: |
+        # Start SAM Local API in background
+        sam local start-api --skip-pull-image --log-file local_api.log &
+        SAM_PID=$!
+        
+        # Wait for API to start
+        echo "Waiting for SAM Local API..."
+        sleep 10
+        
+        # Check if it's running (simple curl check or just proceed)
+        
+        # Run integration tests
+        # We need to set API_GATEWAY_URL for the tests to know where to hit
+        export API_GATEWAY_URL="http://127.0.0.1:3000/detect"
+        
+        if uv run python -m pytest -m integration; then
+            echo "Integration tests passed"
+            kill $SAM_PID
+        else
+            echo "Integration tests failed"
+            cat local_api.log
+            kill $SAM_PID
+            exit 1
+        fi
+
+  deploy-dev:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        
+    - name: Install uv and SAM
+      run: |
+        curl -lsSf https://astral.sh/uv/install.sh | sh
+        
+    - name: Setup AWS SAM CLI
+      uses: aws-actions/setup-sam@v2
+      with:
+         use-installer: true
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        # You need to set these secrets in your repo
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Build
+      run: sam build
+
+    - name: Deploy to Dev
+      run: |
+        sam deploy --config-env dev --no-fail-on-empty-changeset
+
+    - name: Deployment Tests
+      run: |
+        uv pip install --system -e . pytest
+        export STACK_NAME="ophanim-dev"
+        uv run pytest -m deployment

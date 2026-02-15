@@ -233,7 +233,8 @@ test_deployment() {
     sleep 5
 
     log "Running deployment tests..."
-    export STACK_NAME="cerebro-${ENV}"
+    export APP_NAME="${APP_NAME:-ophanim}"
+    export STACK_NAME="${APP_NAME}-${ENV}"
     export AWS_SAM_STACK_NAME=$STACK_NAME
     if $PYTHON_CMD -m pytest -q -m deployment; then
         return 0

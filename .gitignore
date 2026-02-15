@@ -21,14 +21,6 @@
 !setup.cfg
 !cfg/yolov3*.cfg
 
-storage.googleapis.com
-runs/*
-data/*
-!data/*.yaml
-!data/*.sh
-!docs/cerebro.png
-!docs/lambda.png
-
 results*.csv
 
 # Datasets -------------------------------------------------------------------------------------------------------------
@@ -505,3 +497,4 @@ models/*
 .agent/
 .benchmarks/
 *.log*
+.ruff_cache/

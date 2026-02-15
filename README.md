@@ -1,8 +1,7 @@
-![yolo](docs/yolo.jpg)
+![Ophanim](docs/ophanim.jpg)
 
-# $0bject Detection
+# $0phanim
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1PcYQoKgmpfmB7bsmn2QXFtu3CLRVbJ7N?usp=sharing)
 [![Demo](https://img.shields.io/badge/Demo-Live-brightgreen?logo=github)](https://jimothyjohn.github.io/yolo-sam/)
 
 A cost-effective way to detect objects in your environment! Each query completes in about a second and costs fractions of a penny.
@@ -22,17 +21,7 @@ A cost-effective way to detect objects in your environment! Each query completes
 
 * [Microsoft ONNX Runtime](https://github.com/microsoft/onnxruntime): Accelerated CPU runtime. No expensive GPUs!
 
-* [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics): Pretrained, general purpose detection model. Easily repurposed for your own use case!
-
-## Performance Benchmarks
-Comparison of models running on AWS Lambda (ARM64 architecture) using `tests/performance/test_benchmark.py`:
-
-| Metric | YOLOv8 Nano | RF-DETR Nano | Comparison |
-| :--- | :--- | :--- | :--- |
-| **Input Resolution** | **640x640** | 384x384 | YOLOv8 processes ~2.8x more pixels |
-| **Inference Time (Mean)** | **43.4 ms** | 118.6 ms | YOLOv8 is ~2.7x faster |
-| **Memory Delta (RSS)** | **~11.7 MB** | ~39.3 MB | YOLOv8 uses ~3.3x less dynamic memory |
-| **Total Memory (RSS)** | ~378 MB | ~417 MB | Both fit well within 512MB/1GB Lambda |
+* [RF-DETR](https://github.com/roboflow/rf-detr): Pretrained, general purpose detection/segmentation transformer. Easily repurposed for your own use case!
 
 ## Special thanks
 
