@@ -177,7 +177,7 @@ Outputs:
     Description: API Gateway endpoint URL for Prod stage for Detection function
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/detect"
   DetectionFunction:
-    Description: YOLO Lambda Function ARN
+    Description: Ophanim Lambda Function ARN
     Value: !GetAtt DetectionFunction.Arn
   DetectionFunctionIamRole:
     Description: Implicit IAM Role created for Detection function

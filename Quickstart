@@ -120,29 +120,6 @@ check_and_export_model() {
              log "Installing ultralytics for export..."
              uv pip install ultralytics > /dev/null 2>&1
         fi
-
-        # We assume yolov8n.pt -> yolov8n.onnx based on current usage
-        # But if config says something else, we might need to adjust.
-        # For now, hardcode the export source to yolov8n.pt as per ExportONNX.sh logic
-        # Ideally we map config name to pt name, but let's stick to the requested replication of ExportONNX.
-
-        log "Exporting YOLOv8n model to ONNX..."
-        if uv run yolo export model=yolov8n.pt format=onnx > /dev/null 2>&1; then
-             # Move artifact. 'yolo export' usually outputs to current dir or runs dir.
-             # Based on ExportONNX.sh, it expects it in current dir.
-             if [[ -f "yolov8n.onnx" ]]; then
-                 mkdir -p "$(dirname "$full_model_path")"
-                 mv yolov8n.onnx "$full_model_path"
-                 log "Model exported successfully to $full_model_path"
-                 rm -f yolov8n.pt
-             else
-                 log "ERROR: Export command succeeded but output file not found."
-                 return 1
-             fi
-        else
-            log "ERROR: Model export failed."
-            return 1
-        fi
     fi
     return 0
 }

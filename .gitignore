@@ -19,7 +19,6 @@
 *.data
 *.cfg
 !setup.cfg
-!cfg/yolov3*.cfg
 
 results*.csv
 
@@ -47,7 +46,6 @@ VOC/
 *_web_model/
 *_openvino_model/
 darknet53.conv.74
-yolov3-tiny.conv.15
 
 # GitHub Python GitIgnore ----------------------------------------------------------------------------------------------
 # Byte-compiled / optimized / DLL files

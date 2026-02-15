@@ -2,7 +2,7 @@
 
 # $0phanim
 
-[![Demo](https://img.shields.io/badge/Demo-Live-brightgreen?logo=github)](https://jimothyjohn.github.io/yolo-sam/)
+[![Demo](https://img.shields.io/badge/Demo-Live-brightgreen?logo=github)](https://jimothyjohn.github.io/ophanim/)
 
 A cost-effective way to detect objects in your environment! Each query completes in about a second and costs fractions of a penny.
 
