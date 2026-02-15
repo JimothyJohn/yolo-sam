@@ -4,7 +4,7 @@ version = 0.2
 
 [default]
 [default.global.parameters]
-stack_name = "cerebro"
+region = "us-east-1"
 
 [default.build.parameters]
 cached = true
@@ -14,11 +14,7 @@ parallel = true
 lint = true
 
 [default.deploy.parameters]
-capabilities = "CAPABILITY_IAM"
-confirm_changeset = true
 resolve_s3 = true
-s3_prefix = "cerebro"
-region = "us-east-1"
 image_repositories = []
 
 [default.package.parameters]
@@ -40,14 +36,10 @@ stack_name = "cerebro-dev"
 [dev.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
-resolve_s3 = true
 s3_prefix = "cerebro-dev"
-region = "us-east-1"
-parameter_overrides = "Environment=\"dev\""
-image_repositories = []
-
-[dev.sync.parameters]
-watch = true
+parameter_overrides = "Environment=dev"
+resolve_s3 = true
+resolve_image_repos = true
 
 [prod]
 [prod.global.parameters]
@@ -55,11 +47,11 @@ stack_name = "cerebro-prod"
 
 [prod.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
-confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "cerebro-prod"
-region = "us-east-1"
-parameter_overrides = "Environment=prod"
+parameter_overrides = "Environment=prod DomainName=cerebro.advin.io HostedZoneId=REPLACE_ME_WITH_HOSTED_ZONE_ID"
+confirm_changeset = true
+resolve_image_repos = true
 
 [prod.sync.parameters]
 watch = false

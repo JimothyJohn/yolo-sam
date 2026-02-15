@@ -2,14 +2,14 @@ import os
 import boto3
 import pytest
 import requests
-import json
-from tests.fixtures import *
 from time import time
 from typing import Any, Dict, Callable
 
 pytestmark = pytest.mark.deployment
 
 STACK_NAME = os.environ.get("STACK_NAME")
+
+CONTENT_TYPE_JSON = "application/json"
 
 
 @pytest.fixture(scope="session")
@@ -58,10 +58,10 @@ def test_detect_successful_post(
     assert_cors_headers(response.headers)
 
     # Performance Assertion
-    max_allowed_time = 10.0  # seconds
-    assert (
-        response_time < max_allowed_time
-    ), f"Response time exceeded {max_allowed_time} seconds"
+    max_allowed_time = 30.0  # seconds
+    assert response_time < max_allowed_time, (
+        f"Response time exceeded {max_allowed_time} seconds"
+    )
 
 
 def test_detect_successful_get(

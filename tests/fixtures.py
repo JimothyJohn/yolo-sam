@@ -1,4 +1,3 @@
-import json
 import pytest
 from tests.utils import encode_image_to_base64
 from detection.utils import GET_RESPONSE

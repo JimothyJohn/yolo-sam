@@ -4,15 +4,15 @@ set -e
 set -o nounset
 set -o pipefail
 
-# AI-generated comment: Check for the existence of the dev.env file
-if [[ -f "dev.env" ]]; then
-    set -a
-    . dev.env
-    set +a
-fi
-
 # Ensure ENV is set
 export ENV="${ENV:-dev}"
+
+# AI-generated comment: Check for the existence of the dev.env file
+if [[ -f ".env.${ENV}" ]]; then
+    set -a
+    . ".env.${ENV}"
+    set +a
+fi
 
 if [[ "${TRACE-0}" == "1" ]]; then
     set -o xtrace
@@ -94,7 +94,7 @@ check_and_export_model() {
     # Assuming MODEL_PATH = "models/filename.onnx"
     local config_model_path
     config_model_path=$(grep -E "^MODEL_PATH\s*=" detection/config.py | head -n 1 | cut -d '"' -f 2)
-    
+
     # If using single quotes, try to catch that too, but simple parsing for now
     if [[ -z "$config_model_path" ]]; then
        # Fallback or try single quotes
@@ -109,11 +109,13 @@ check_and_export_model() {
     local full_model_path="detection/${config_model_path}"
 
     if [[ ! -f "$full_model_path" ]]; then
-        log "Model not found at $full_model_path. Attempting to export..."
-        
+        log "Model not found at $full_model_path. Attempting to download..."
+
+        wget -O detection/models/rf-detr-nano.onnx https://huggingface.co/PierreMarieCurie/rf-detr-onnx/resolve/main/rf-detr-nano.onnx
+
         # Check for ultralytics
         if ! uv run python -c "import ultralytics" &> /dev/null; then
-             # Try installing dev dependencies if checks fail? 
+             # Try installing dev dependencies if checks fail?
              # Assuming environment is already set up by validate_and_build -> install -e .
              log "Installing ultralytics for export..."
              uv pip install ultralytics > /dev/null 2>&1
@@ -123,7 +125,7 @@ check_and_export_model() {
         # But if config says something else, we might need to adjust.
         # For now, hardcode the export source to yolov8n.pt as per ExportONNX.sh logic
         # Ideally we map config name to pt name, but let's stick to the requested replication of ExportONNX.
-        
+
         log "Exporting YOLOv8n model to ONNX..."
         if uv run yolo export model=yolov8n.pt format=onnx > /dev/null 2>&1; then
              # Move artifact. 'yolo export' usually outputs to current dir or runs dir.
@@ -152,7 +154,12 @@ validate_and_build() {
         return 1
     fi
 
-    if ! uv run python -m black -q detection; then
+    if ! uv run ruff check --fix -q; then
+        log "ERROR: Code checking failed"
+        return 1
+    fi
+
+    if ! uv run ruff format -q; then
         log "ERROR: Code formatting failed"
         return 1
     fi
@@ -173,7 +180,7 @@ validate_and_build() {
 
 test_unit() {
     log "Running unit tests..."
-    if ! uv run python -m pytest -q -m unit; then
+    if ! uv run pytest -q -m unit; then
         log "ERROR: Unit tests failed"
         return 1
     fi
@@ -192,15 +199,15 @@ test_integration() {
         return 0
     fi
 
-    log "[$(date +'%Y-%m-%d %H:%M:%S')] Running integration test procedure [5s]..."
-    sam local start-api --skip-pull-image --log-file ./local_api.log > /dev/null 2>&1 &
+    log "Running integration test procedure [5s]..."
+    sam local start-api --skip-pull-image --log-file .logs/local_api.log > /dev/null 2>&1 &
     SAM_PID=$!
 
     # Wait for the API to start (adjust sleep time as needed)
     sleep 5
 
     # Run integration tests against the local endpoint
-    
+
     if ! API_GATEWAY_URL="http://127.0.0.1:3000/detect" uv run python -m pytest -q -m integration; then
         log "ERROR: API tests failed"
         kill $SAM_PID
@@ -216,18 +223,17 @@ test_integration() {
 
 test_deployment() {
     # Ensure ENV is set, though checking at top level
-    local deploy_env="${ENV:-dev}"
-    log "Deploying ${deploy_env} application (est. 20s)"
-    if ! sam deploy --config-env $deploy_env --no-fail-on-empty-changeset > deploy.log 2>&1; then
-        log "ERROR: SAM deploy failed. Check deploy.log for details."
-        cat deploy.log
+    log "Deploying ${ENV} application (est. 20s)"
+    if ! sam deploy --config-env $ENV --no-fail-on-empty-changeset > .logs/deploy.log 2>&1; then
+        log "ERROR: SAM deploy failed. Check .logs/deploy.log for details."
+        cat .logs/deploy.log
         return 1
     fi
 
     sleep 5
 
     log "Running deployment tests..."
-    export STACK_NAME="cerebro-${deploy_env}"
+    export STACK_NAME="cerebro-${ENV}"
     export AWS_SAM_STACK_NAME=$STACK_NAME
     if $PYTHON_CMD -m pytest -q -m deployment; then
         return 0
@@ -238,9 +244,9 @@ test_deployment() {
 
 publish() {
     log "Publishing prod application (est. 20s)"
-    if ! sam deploy --config-env prod --no-fail-on-empty-changeset | tee publish.log; then
-        log "ERROR: SAM deploy failed. Check deploy.log for details."
-        cat publish.log
+    if ! sam deploy --config-env "prod" | tee .logs/publish.log; then
+        log "ERROR: SAM deploy failed. Check .logs/publish.log for details."
+        cat .logs/publish.log
         return 1
     fi
 }
@@ -276,17 +282,20 @@ main() {
                 exit 0
                 ;;
             -i|--integration-test)
+                validate_and_build || exit 1
                 test_integration || { log "Integration tests failed"; exit 1; }
                 exit 0
                 ;;
             -d|--deployment-test)
+                validate_and_build || exit 1
                 test_deployment || { log "Deployment tests failed"; exit 1; }
                 exit 0
                 ;;
             -p|--publish)
-                test_integration || { log "Integration tests failed"; exit 1; }
                 test_unit || { log "Unit tests failed"; exit 1; }
                 validate_and_build || exit 1
+                test_integration || { log "Integration tests failed"; exit 1; }
+                test_deployment || { log "Deployment tests failed"; exit 1; }
                 publish || { log "Publish failed"; exit 1; }
                 exit 0
                 ;;

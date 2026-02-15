@@ -1,13 +1,14 @@
 import os
 import pytest
 import requests
-from tests.fixtures import *
 from time import time
 from typing import Any, Dict, Callable
 
 pytestmark = pytest.mark.integration
 
 API_GATEWAY_URL = os.environ.get("API_GATEWAY_URL")
+
+CONTENT_TYPE_JSON = "application/json"
 
 
 def test_detect_successful_post(
@@ -25,9 +26,9 @@ def test_detect_successful_post(
 
     # Performance Assertion
     max_allowed_time = 10.0  # seconds
-    assert (
-        response_time < max_allowed_time
-    ), f"Response time exceeded {max_allowed_time} seconds"
+    assert response_time < max_allowed_time, (
+        f"Response time exceeded {max_allowed_time} seconds"
+    )
 
 
 def test_detect_successful_get(

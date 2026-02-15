@@ -1,11 +1,9 @@
 from dataclasses import dataclass
-from typing import Optional, List, Union, Tuple
+from typing import List, Optional, Tuple
+
 import numpy as np
 import onnxruntime as ort
-import os
-
-import io
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image
 
 try:
     import detection.utils as utils

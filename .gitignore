@@ -113,7 +113,6 @@ coverage.xml
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
 
 # Flask stuff:
@@ -500,8 +499,9 @@ $RECYCLE.BIN/
 images/
 *.code-workspace
 events/
-*.env
+*.env*
 outputs/
 models/*
 .agent/
 .benchmarks/
+*.log*

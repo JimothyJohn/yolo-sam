@@ -8,13 +8,23 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues:
-      - dev
       - prod
+  DomainName:
+    Type: String
+    Default: cerebro.advin.io
+    Description: The custom domain name for the API
+  HostedZoneId:
+    Type: String
+    Description: The Route53 Hosted Zone ID for the domain.
+    Default: Z0956961135Y664684443 # Default to a placeholder, user should override or I can attempt to find it. actually, better to leave empty or default to something valid if possible. user said "Cerebro.advin.io". I will assume they know the hosted zone ID or will look it up.
+    # Actually, let's just make it a required parameter if we can, or give it a default that assumes the user updates it.
+    # For now, I'll put a placeholder that clearly indicates it needs to be set.
+    Default: REPLACE_ME_WITH_HOSTED_ZONE_ID
 
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 10
+    Timeout: 60
     MemorySize: 2048
     Tracing: Active
     # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
@@ -30,15 +40,20 @@ Globals:
 Resources:
   DetectionFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ./detection
+      DockerTag: v1
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-detection-${Environment}"
+      # FunctionName: !Sub "${AWS::StackName}"
+      PackageType: Image
       CodeUri: detection/
-      Handler: app.lambda_handler
-      Runtime: python3.12
+      # Handler: app.lambda_handler
+      # Runtime: python3.12
       Architectures:
-        - x86_64 
+        - x86_64
       EphemeralStorage:
-        Size: 1024
+        Size: 4096
       EventInvokeConfig:
         MaximumEventAgeInSeconds: 21600
         MaximumRetryAttempts: 2
@@ -90,6 +105,68 @@ Resources:
         Ref: ApplicationResourceGroup
       AutoConfigurationEnabled: true
 
+
+
+  ApiCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Aliases:
+          - !Ref DomainName
+        ViewerCertificate:
+          AcmCertificateArn: !Ref ApiCertificate
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        Origins:
+          - Id: ApiGatewayOrigin
+            DomainName: !Sub "${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com"
+            OriginPath: /Prod
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        DefaultCacheBehavior:
+          TargetOriginId: ApiGatewayOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - HEAD
+            - DELETE
+            - POST
+            - GET
+            - OPTIONS
+            - PUT
+            - PATCH
+          CachedMethods:
+            - HEAD
+            - GET
+          ForwardedValues:
+            QueryString: true
+            Headers:
+              - Authorization
+            Cookies:
+              Forward: none
+        HttpVersion: http2
+
+  Route53RecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        HostedZoneId: Z2FDTNDATAQYW2 # CloudFront Hosted Zone ID (Fixed for all distributions)
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   # Find out more about other implicit resources you can reference within SAM
@@ -103,3 +180,9 @@ Outputs:
   DetectionFunctionIamRole:
     Description: Implicit IAM Role created for Detection function
     Value: !GetAtt DetectionFunctionRole.Arn
+  CloudFrontDistribution:
+    Description: CloudFront Distribution Domain Name
+    Value: !GetAtt CloudFrontDistribution.DomainName
+  CustomDomain:
+    Description: Custom Domain URL
+    Value: !Sub "https://${DomainName}"

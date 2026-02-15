@@ -18,7 +18,7 @@ class CocoClassMapper:
             with open(yaml_path, "r") as file:
                 data = yaml.safe_load(file)
                 return {int(k): v for k, v in data["names"].items()}
-        except Exception as e:
+        except Exception:
             raise
 
     def map_class_names(self, detections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
