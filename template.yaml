@@ -57,7 +57,14 @@ Resources:
       EventInvokeConfig:
         MaximumEventAgeInSeconds: 21600
         MaximumRetryAttempts: 2
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          APP_NAME: !Ref AppName
+          IMAGES_BUCKET_NAME: !Ref ImagesBucket
       Policies:
+        - S3WritePolicy:
+            BucketName: !Ref ImagesBucket
         - Statement:
             - Effect: Allow
               Action:
@@ -69,10 +76,6 @@ Resources:
                 - logs:PutLogEvents
               Resource:
                 - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/detection:*
-      Environment:
-        Variables:
-          ENVIRONMENT: !Ref Environment
-          APP_NAME: !Ref AppName
       SnapStart:
         ApplyOn: None
       Events:
@@ -91,6 +94,11 @@ Resources:
           Properties:
             Path: /detect
             Method: options
+
+  ImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AppName}-images-${Environment}"
 
   ApplicationResourceGroup:
     Type: AWS::ResourceGroups::Group
@@ -190,3 +198,7 @@ Outputs:
     Description: Custom Domain URL
     Condition: HasCustomDomain
     Value: !Sub "https://{{resolve:ssm:/${AppName}/${StackName}/domain_name}}"
+
+  ImagesBucketName:
+    Description: S3 Bucket for Images
+    Value: !Sub "${AppName}-images-${Environment}"

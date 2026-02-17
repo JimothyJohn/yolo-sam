@@ -3,6 +3,8 @@ import os
 import json
 import base64
 import logging
+import uuid
+import boto3
 from io import BytesIO
 from typing import Dict, List, Any
 from PIL import Image
@@ -28,6 +30,10 @@ logger.setLevel(logging.DEBUG)  # Set to DEBUG to capture all levels of logs
 
 # Create a formatter
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+# Initialize S3 client
+s3_client = boto3.client("s3")
+IMAGES_BUCKET_NAME = os.environ.get("IMAGES_BUCKET_NAME")
 
 
 @lru_cache(maxsize=1)
@@ -55,9 +61,10 @@ def get_class_mapper():
 def detect(body: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Perform object detection on an image and return detections with class names.
+    If save_image is True, saves the image and detections to S3.
 
     :param body: A dictionary containing the image and detection parameters.
-    :return: Detections with class names.
+    :return: A tuple containing (detections with class names, image_url).
     """
     logger.info("Starting detection process")
 
@@ -111,11 +118,56 @@ def detect(body: Dict[str, Any]) -> List[Dict[str, Any]]:
         raise
 
     # Map class IDs to names
-    class_mapper = get_class_mapper()
-    detections_with_names = class_mapper.map_class_names(detections)
+    detections_with_names = get_class_mapper().map_class_names(detections)
     logger.debug("Class names mapped to detections")
 
-    return detections_with_names
+    image_url = None
+    if body.get("save_image", True):
+        try:
+            image_id = str(uuid.uuid4())
+            # Save image
+            image_key = f"images/{image_id}.jpg"
+            # We need to re-encode the image to bytes for S3
+            # Since we have the original base64 string, we can just decode that
+            image_bytes = base64.b64decode(img_b64.encode("ascii"))
+
+            s3_client.put_object(
+                Bucket=IMAGES_BUCKET_NAME,
+                Key=image_key,
+                Body=image_bytes,
+                ContentType="image/jpeg",
+            )
+
+            # Save detections
+            json_key = f"detections/{image_id}.json"
+            s3_client.put_object(
+                Bucket=IMAGES_BUCKET_NAME,
+                Key=json_key,
+                Body=json.dumps(detections_with_names),
+                ContentType="application/json",
+            )
+
+            # Construct S3 URL (assuming regional endpoint for now, or just s3:// uri if private)
+            # User asked for "S3 bucket URL", usually that means s3://... or https://...
+            # "The S3 bucket will be private at first but with the idea that it could someday be public"
+            # Let's return the s3:// URL for now as it's private, or the object URL.
+            # actually, standard practice for private buckets is s3:// or the console URL.
+            # But if it might be public, https url is better.
+            # Let's use s3:// format for now as it is unambiguous for private buckets.
+            # Wait, "The url will be returned with the response as an image_url property with the S3 bucket URL"
+            # Let's explicitly formatted as s3://{bucket}/{key}
+            image_url = f"s3://{IMAGES_BUCKET_NAME}/{image_key}"
+
+            logger.info(f"Saved image and detections to S3 with ID {image_id}")
+        except Exception as e:
+            logger.error(f"Failed to save to S3: {e}")
+            # we don't fail the request, just log it? Or should we?
+            # "The image will be saved..." implies it's expected.
+            # But detection is the primary goal. Let's log and continue but maybe return a warning?
+            # For now, just log error and return None for image_url
+            pass
+
+    return detections_with_names, image_url
 
 
 def validate_body(body: dict) -> tuple:
@@ -237,9 +289,13 @@ def lambda_handler(event: dict, context: Any) -> dict:
             "headers": cors_headers,
         }
 
-    detections = detect(validated_body)
+    detections, image_url = detect(validated_body)
+    response_body = {"detections": detections, "version": "0.1"}
+    if image_url:
+        response_body["image_url"] = image_url
+
     return {
         "statusCode": 200,
-        "body": json.dumps({"detections": detections}),
+        "body": json.dumps(response_body),
         "headers": cors_headers,
     }

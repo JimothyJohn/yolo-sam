@@ -4,7 +4,7 @@
 
 [![Demo](https://img.shields.io/badge/Demo-Live-brightgreen?logo=github)](https://jimothyjohn.github.io/ophanim/)
 
-A cost-effective way to detect objects in your environment! Each query completes in about a second and costs fractions of a penny.
+A cost-effective way to detect objects in your environment. Each query completes in about a second (after bootup) and costs fractions of a penny.
 
 **You can run a THOUSAND detections for only TWO cents!**
 
@@ -17,11 +17,11 @@ A cost-effective way to detect objects in your environment! Each query completes
 
 ### Powered by:
 
-* [AWS SAM](https://aws.amazon.com/serverless/sam/): Automated deployment with a single command. Accessible anyime, anywhere!
+* [AWS SAM](https://aws.amazon.com/serverless/sam/): Automated deployment with a single command. Accessible anyime, anywhere
 
-* [Microsoft ONNX Runtime](https://github.com/microsoft/onnxruntime): Accelerated CPU runtime. No expensive GPUs!
+* [Microsoft ONNX Runtime](https://github.com/microsoft/onnxruntime): Accelerated CPU runtime. No expensive GPUs
 
-* [RF-DETR](https://github.com/roboflow/rf-detr): Pretrained, general purpose detection/segmentation transformer. Easily repurposed for your own use case!
+* [RF-DETR](https://github.com/roboflow/rf-detr): Pretrained, general purpose detection/segmentation transformer. Easily repurposed for your own use case
 
 ## Special thanks
 

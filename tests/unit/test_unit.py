@@ -61,20 +61,73 @@ def test_detect_post_valid_save_image(
     apigw_event_factory,
     test_body: dict,
     assert_cors_headers: Callable[[dict[str, str]], None],
+    monkeypatch,
 ) -> None:
-    body = test_body.copy()
-    body["save_image"] = True
-    event = apigw_event_factory(
-        http_method="POST",
-        body=json.dumps(body),
-        headers={"Content-Type": "application/json"},
+    """
+    Tests the ability to save the sent image to an AWS S3 bucket called ophalim-images
+    """
+    # Mock S3 client
+    import boto3
+    from botocore.stub import Stubber, ANY
+
+    # Create a dummy client and stub it
+    s3 = boto3.client("s3")
+    stubber = Stubber(s3)
+
+    # Expect put_object for image
+    stubber.add_response(
+        "put_object",
+        {},
+        {
+            "Bucket": "test-bucket",
+            "Key": "images/mock-uuid.jpg",
+            "Body": ANY,
+            "ContentType": "image/jpeg",
+        },
+    )
+    # Expect put_object for json
+    stubber.add_response(
+        "put_object",
+        {},
+        {
+            "Bucket": "test-bucket",
+            "Key": "detections/mock-uuid.json",
+            "Body": ANY,
+            "ContentType": "application/json",
+        },
     )
 
-    ret = lambda_handler(event, "")
-    assert ret["statusCode"] == 200
-    body = json.loads(ret["body"])
-    assert "detections" in body
-    assert_cors_headers(ret["headers"])  # Check CORS headers
+    # Mock the s3_client in app.py
+    # We need to patch the s3_client instance in the module
+    import detection.app
+
+    monkeypatch.setattr(detection.app, "s3_client", s3)
+    monkeypatch.setattr(detection.app, "IMAGES_BUCKET_NAME", "test-bucket")
+
+    # Mock uuid to return a fixed value
+    class MockUUID:
+        def __str__(self):
+            return "mock-uuid"
+
+    monkeypatch.setattr(detection.app.uuid, "uuid4", MockUUID)
+
+    # Allow the stubber to be used
+    with stubber:
+        body = test_body.copy()
+        body["save_image"] = True
+        event = apigw_event_factory(
+            http_method="POST",
+            body=json.dumps(body),
+            headers={"Content-Type": "application/json"},
+        )
+
+        ret = lambda_handler(event, "")
+        assert ret["statusCode"] == 200
+        body = json.loads(ret["body"])
+        assert "detections" in body
+        assert body["version"] == "0.1"
+        assert body["image_url"] == "s3://test-bucket/images/mock-uuid.jpg"
+        assert_cors_headers(ret["headers"])  # Check CORS headers
 
 
 @pytest.mark.parametrize(

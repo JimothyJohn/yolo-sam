@@ -29,6 +29,6 @@ class CocoClassMapper:
         :return: The enriched list of detections with class names.
         """
         for detection in detections:
-            class_id = detection.get("class_id")
+            class_id = detection.get("class_id") - 1
             detection["class_name"] = self.class_id_to_name.get(class_id, "Unknown")
         return detections

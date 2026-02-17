@@ -497,3 +497,4 @@ models/*
 *.log*
 .ruff_cache/
 !docs/ophanim.jpg
+!.env.example
